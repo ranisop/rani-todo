@@ -1754,6 +1754,42 @@
                 const isOpen = window.openedSubjectIds.has(subj.id);
                 card.className = 'subject-card' + (isOpen ? ' open' : '');
                 card.dataset.id = subj.id;
+                card.draggable = true;
+
+                // 과목 드래그 앤 드롭 이벤트
+                card.ondragstart = (e) => {
+                    e.dataTransfer.setData("text/plain", subj.id);
+                    e.target.style.opacity = '0.5';
+                };
+                card.ondragend = (e) => { e.target.style.opacity = '1'; };
+                card.ondragover = (e) => {
+                    e.preventDefault();
+                    const bounding = card.getBoundingClientRect();
+                    const offset = bounding.y + (bounding.height / 2);
+                    if (e.clientY - offset > 0) {
+                        card.style.borderBottom = "2px dashed #999";
+                        card.style.borderTop = "";
+                    } else {
+                        card.style.borderTop = "2px dashed #999";
+                        card.style.borderBottom = "";
+                    }
+                };
+                card.ondragleave = (e) => {
+                    card.style.borderTop = "";
+                    card.style.borderBottom = "";
+                };
+                card.ondrop = (e) => {
+                    e.preventDefault();
+                    card.style.borderTop = "";
+                    card.style.borderBottom = "";
+                    const dragId = e.dataTransfer.getData("text/plain");
+                    if (dragId && dragId !== subj.id) {
+                        const bounding = card.getBoundingClientRect();
+                        const offset = bounding.y + (bounding.height / 2);
+                        const insertAfter = e.clientY - offset > 0;
+                        window.reorderSubject(dragId, subj.id, insertAfter);
+                    }
+                };
 
                 card.innerHTML = `
                     <div class="subject-card-header" onclick="window.toggleSubjectCard('${subj.id}')">
@@ -1816,6 +1852,23 @@
                     });
                 });
             });
+        };
+
+        window.reorderSubject = (dragId, targetId, insertAfter) => {
+            const dragIdx = window.subjects.findIndex(s => s.id === dragId);
+            if(dragIdx === -1) return;
+            const dragSubj = window.subjects[dragIdx];
+            window.subjects.splice(dragIdx, 1);
+
+            let targetIdx = window.subjects.findIndex(s => s.id === targetId);
+            if(targetIdx === -1) {
+                window.subjects.push(dragSubj);
+            } else {
+                if(insertAfter) window.subjects.splice(targetIdx + 1, 0, dragSubj);
+                else window.subjects.splice(targetIdx, 0, dragSubj);
+            }
+            window.renderLectures();
+            window.saveLecturesToCloud();
         };
 
         window.toggleSubjectCard = (subjId) => {
@@ -1935,7 +1988,7 @@
             const source = _modalWeeks[wi];
             const newWeek = {
                 weekNum: _modalWeeks.length + 1,
-                deadline: '', // 마감일은 새로 설정하도록 비움
+                deadline: source.deadline || '', // 날짜도 함께 복사
                 lectures: source.lectures.map(l => ({
                     id: 'lec_' + Date.now() + Math.random(),
                     title: l.title,
@@ -2032,25 +2085,54 @@
         };
 
         // --- 전체 일정 요약 ---
+        window.openedOverviewSubjectIds = new Set(); // 전체 일정에서 열려있는 과목 ID
+
         window.openOverview = () => {
             _editSubjectId = 'OVERVIEW';
             document.getElementById('subjectModalTitle').innerText = '📅 전체 강의 일정';
+            window.renderOverviewBody();
+
+            const footer = document.getElementById('subjectModalFooter');
+            footer.innerHTML = `
+                <button class="modal-save-btn" onclick="window.closeSubjectModal()">닫기</button>
+            `;
+            document.getElementById('subjectModal').classList.add('open');
+        };
+
+        window.toggleOverviewSubject = (subjId) => {
+            if(window.openedOverviewSubjectIds.has(subjId)) {
+                window.openedOverviewSubjectIds.delete(subjId);
+            } else {
+                window.openedOverviewSubjectIds.add(subjId);
+            }
+            window.renderOverviewBody();
+        }
+
+        window.renderOverviewBody = () => {
             const body = document.getElementById('subjectModalBody');
-            
             if(window.subjects.length === 0) {
                 body.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted);">등록된 과목이 없습니다.</div>`;
-            } else {
-                let html = '';
-                window.subjects.forEach(subj => {
-                    const schedule = (subj.weeks||[]).map(w => {
-                        const doneL = (w.lectures||[]).filter(l => l.done).length;
-                        const totalL = (w.lectures||[]).length;
-                        return { week: w, done: doneL, total: totalL, isAllDone: totalL > 0 && doneL === totalL };
-                    });
+                return;
+            }
+            
+            let html = '';
+            window.subjects.forEach(subj => {
+                const schedule = (subj.weeks||[]).map(w => {
+                    const doneL = (w.lectures||[]).filter(l => l.done).length;
+                    const totalL = (w.lectures||[]).length;
+                    return { week: w, done: doneL, total: totalL, isAllDone: totalL > 0 && doneL === totalL };
+                });
 
-                    html += `
-                        <div style="margin-bottom:24px;">
-                            <div class="overview-subj-tag" style="background:${subj.color}; margin-bottom:8px; font-size:13px; padding:4px 12px;">${subj.name}</div>
+                const isOpen = window.openedOverviewSubjectIds.has(subj.id);
+
+                html += `
+                    <div style="margin-bottom:12px; border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden;">
+                        <div onclick="window.toggleOverviewSubject('${subj.id}')" style="display:flex; align-items:center; gap:10px; padding:12px 16px; cursor:pointer; background-color: var(--card-bg);">
+                            <div style="width:12px; height:12px; border-radius:50%; background:${subj.color};"></div>
+                            <div style="flex:1; font-weight:700; font-size:14px; color:var(--text-main);">${subj.name}</div>
+                            <div style="font-size:12px; color:var(--text-muted); transition: transform 0.2s; transform: ${isOpen ? 'rotate(180deg)' : 'rotate(0deg)'}">▼</div>
+                        </div>
+                        <div style="display: ${isOpen ? 'block' : 'none'}; padding: 0 16px 16px; background-color: white;">
                             <table class="overview-table">
                                 <thead>
                                     <tr>
@@ -2060,42 +2142,35 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                    `;
+                `;
 
-                    if(schedule.length === 0) {
-                        html += `<tr><td colspan="3" style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">보여줄 일정이 없어요.</td></tr>`;
-                    } else {
-                        schedule.forEach(item => {
-                            const dlClass = window.getDeadlineClass(item.week.deadline, item.isAllDone);
-                            const dlText = item.week.deadline ? item.week.deadline.substring(5).replace('-','/') : '-';
-                            html += `
-                                <tr>
-                                    <td style="font-weight:600;">${item.week.weekNum}주차</td>
-                                    <td>
-                                        <div class="week-deadline ${dlClass}" style="display:inline-block">${dlText}</div>
-                                    </td>
-                                    <td style="text-align:right;">
-                                        <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:4px;">
-                                            ${item.done}/${item.total}
-                                        </div>
-                                        <div class="progress-bar-track" style="width:40px; height:4px; display:inline-block;">
-                                            <div class="progress-bar-fill" style="width:${Math.round(item.done/item.total*100)}%; background-color:${subj.color}"></div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `;
-                        });
-                    }
-                    html += `</tbody></table></div>`;
-                });
-                body.innerHTML = html;
-            }
-
-            const footer = document.getElementById('subjectModalFooter');
-            footer.innerHTML = `
-                <button class="modal-save-btn" onclick="window.closeSubjectModal()">닫기</button>
-            `;
-            document.getElementById('subjectModal').classList.add('open');
+                if(schedule.length === 0) {
+                    html += `<tr><td colspan="3" style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">보여줄 일정이 없어요.</td></tr>`;
+                } else {
+                    schedule.forEach(item => {
+                        const dlClass = window.getDeadlineClass(item.week.deadline, item.isAllDone);
+                        const dlText = item.week.deadline ? item.week.deadline.substring(5).replace('-','/') : '-';
+                        html += `
+                            <tr>
+                                <td style="font-weight:600;">${item.week.weekNum}주차</td>
+                                <td>
+                                    <div class="week-deadline ${dlClass}" style="display:inline-block">${dlText}</div>
+                                </td>
+                                <td style="text-align:right;">
+                                    <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:4px;">
+                                        ${item.done}/${item.total}
+                                    </div>
+                                    <div class="progress-bar-track" style="width:40px; height:4px; display:inline-block;">
+                                        <div class="progress-bar-fill" style="width:${Math.round(item.done/item.total*100)}%; background-color:${subj.color}"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+                html += `</tbody></table></div></div>`;
+            });
+            body.innerHTML = html;
         };
 
         window.saveCategoriesToCloud = async () => {
