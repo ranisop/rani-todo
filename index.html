@@ -1894,7 +1894,10 @@
                 wdiv.innerHTML = `
                     <div class="week-edit-header">
                         <span class="week-edit-title">${week.weekNum}주차</span>
-                        <button class="week-delete-btn" onclick="window.removeWeekFromModal(${wi})">×</button>
+                        <div style="display:flex; gap:6px;">
+                            <button class="add-lec-btn" style="margin:0; padding:4px 8px; font-size:11px;" onclick="window.duplicateWeek(${wi})">📄 복제</button>
+                            <button class="week-delete-btn" onclick="window.removeWeekFromModal(${wi})">×</button>
+                        </div>
                     </div>
                     <div class="week-deadline-row">
                         <span style="font-size:12px;color:var(--text-muted)">마감일</span>
@@ -1915,6 +1918,25 @@
                     lecSec.appendChild(ldiv);
                 });
             });
+        };
+
+        window.duplicateWeek = (wi) => {
+            window._syncModalInputs();
+            const source = _modalWeeks[wi];
+            const newWeek = {
+                weekNum: _modalWeeks.length + 1,
+                deadline: '', // 마감일은 새로 설정하도록 비움
+                lectures: source.lectures.map(l => ({
+                    id: 'lec_' + Date.now() + Math.random(),
+                    title: l.title,
+                    done: false
+                }))
+            };
+            _modalWeeks.push(newWeek);
+            _modalWeeks.forEach((w, i) => w.weekNum = i + 1);
+            window._renderWeekEditItems();
+            const sec = document.getElementById('weekEditSection');
+            if(sec) sec.lastElementChild && sec.lastElementChild.scrollIntoView({behavior:'smooth', block:'nearest'});
         };
 
         window.addWeekToModal = () => {
@@ -2005,70 +2027,59 @@
             document.getElementById('subjectModalTitle').innerText = '📅 전체 강의 일정';
             const body = document.getElementById('subjectModalBody');
             
-            // 데이터 수집하여 마감일순 정렬
-            let schedule = [];
-            window.subjects.forEach(s => {
-                (s.weeks||[]).forEach(w => {
-                    const doneLectures = (w.lectures||[]).filter(l => l.done).length;
-                    const totalLectures = (w.lectures||[]).length;
-                    schedule.push({
-                        subj: s,
-                        week: w,
-                        done: doneLectures,
-                        total: totalLectures,
-                        isAllDone: totalLectures > 0 && doneLectures === totalLectures
-                    });
-                });
-            });
-
-            schedule.sort((a,b) => {
-                if(!a.week.deadline) return 1;
-                if(!b.week.deadline) return -1;
-                return new Date(a.week.deadline) - new Date(b.week.deadline);
-            });
-
-            let tableHtml = `
-                <table class="overview-table">
-                    <thead>
-                        <tr>
-                            <th>과목/주차</th>
-                            <th>마감일</th>
-                            <th>상태</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            if(schedule.length === 0) {
-                tableHtml += `<tr><td colspan="3" style="text-align:center; padding:40px;">등록된 일정이 없습니다.</td></tr>`;
+            if(window.subjects.length === 0) {
+                body.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted);">등록된 과목이 없습니다.</div>`;
             } else {
-                schedule.forEach(item => {
-                    const dlClass = window.getDeadlineClass(item.week.deadline, item.isAllDone);
-                    const dlText = item.week.deadline ? item.week.deadline.substring(5).replace('-','/') : '-';
-                    tableHtml += `
-                        <tr>
-                            <td>
-                                <div class="overview-subj-tag" style="background:${item.subj.color}">${item.subj.name}</div>
-                                <div style="font-weight:600">${item.week.weekNum}주차</div>
-                            </td>
-                            <td>
-                                <div class="week-deadline ${dlClass}" style="display:inline-block">${dlText}</div>
-                            </td>
-                            <td>
-                                <div style="font-size:11px; font-weight:700; color:var(--text-muted)">
-                                    ${item.done}/${item.total}
-                                </div>
-                                <div class="progress-bar-track" style="width:40px; height:4px; margin-top:4px;">
-                                    <div class="progress-bar-fill" style="width:${Math.round(item.done/item.total*100)}%; background-color:${item.subj.color}"></div>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                });
-            }
+                let html = '';
+                window.subjects.forEach(subj => {
+                    const schedule = (subj.weeks||[]).map(w => {
+                        const doneL = (w.lectures||[]).filter(l => l.done).length;
+                        const totalL = (w.lectures||[]).length;
+                        return { week: w, done: doneL, total: totalL, isAllDone: totalL > 0 && doneL === totalL };
+                    });
 
-            tableHtml += `</tbody></table>`;
-            body.innerHTML = tableHtml;
+                    html += `
+                        <div style="margin-bottom:24px;">
+                            <div class="overview-subj-tag" style="background:${subj.color}; margin-bottom:8px; font-size:13px; padding:4px 12px;">${subj.name}</div>
+                            <table class="overview-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:70px;">주차</th>
+                                        <th>마감일</th>
+                                        <th style="text-align:right;">상태</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+
+                    if(schedule.length === 0) {
+                        html += `<tr><td colspan="3" style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">보여줄 일정이 없어요.</td></tr>`;
+                    } else {
+                        schedule.forEach(item => {
+                            const dlClass = window.getDeadlineClass(item.week.deadline, item.isAllDone);
+                            const dlText = item.week.deadline ? item.week.deadline.substring(5).replace('-','/') : '-';
+                            html += `
+                                <tr>
+                                    <td style="font-weight:600;">${item.week.weekNum}주차</td>
+                                    <td>
+                                        <div class="week-deadline ${dlClass}" style="display:inline-block">${dlText}</div>
+                                    </td>
+                                    <td style="text-align:right;">
+                                        <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:4px;">
+                                            ${item.done}/${item.total}
+                                        </div>
+                                        <div class="progress-bar-track" style="width:40px; height:4px; display:inline-block;">
+                                            <div class="progress-bar-fill" style="width:${Math.round(item.done/item.total*100)}%; background-color:${subj.color}"></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                    }
+                    html += `</tbody></table></div>`;
+                });
+                body.innerHTML = html;
+            }
 
             const footer = document.getElementById('subjectModalFooter');
             footer.innerHTML = `
