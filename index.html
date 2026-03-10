@@ -1139,6 +1139,33 @@
             margin-bottom: 20px;
         }
 
+        /* 전체 일정 요약 모달 전용 */
+        .overview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+        .overview-table th, .overview-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--border-color);
+            text-align: left;
+        }
+        .overview-table th {
+            background-color: var(--bg-color);
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+        .overview-subj-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 11px;
+            color: white;
+            margin-bottom: 4px;
+        }
+
         .subj-color-pick {
             width: 40px;
             height: 40px;
@@ -1426,7 +1453,10 @@
                     <div class="lecture-section" id="lectureContainer">
                         <div class="lecture-header">
                             <h2>&#127979; 강의 진도</h2>
-                            <button class="add-subject-btn" onclick="window.openSubjectModal(null)">+ 과목 추가</button>
+                            <div style="display:flex; gap:8px;">
+                                <button class="add-subject-btn" style="background-color:white; color:var(--text-main); border:1px solid #ddd;" onclick="window.openOverview()">📅 전체 일정</button>
+                                <button class="add-subject-btn" onclick="window.openSubjectModal(null)">+ 과목 추가</button>
+                            </div>
                         </div>
                         <div id="subjectList"></div>
                     </div>
@@ -1504,6 +1534,7 @@
         window.activeCategoryId = '';
         window.todos = {};
         window.subjects = []; // [{ id, name, color, weeks: [{weekNum, deadline, lectures:[{id, title, done}]}] }]
+        window.openedSubjectIds = new Set(); // 열려있는 과목 카드 ID 저장
 
         let currentDate = new Date();
         let currentRefDate = new Date(); 
@@ -1689,15 +1720,37 @@
             }
             window.subjects.forEach(subj => {
                 const prog = window.calcProgress(subj);
+                
+                // 대표 마감일 계산 (미완료 주차 중 가장 빠른 날짜)
+                let nearestDl = null;
+                (subj.weeks||[]).forEach(w => {
+                    const wDone = (w.lectures||[]).length > 0 && (w.lectures||[]).every(l=>l.done);
+                    if(!wDone && w.deadline) {
+                        if(!nearestDl || new Date(w.deadline) < new Date(nearestDl)) {
+                            nearestDl = w.deadline;
+                        }
+                    }
+                });
+                let headerDlText = '';
+                if(nearestDl) {
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const d = new Date(nearestDl);
+                    const diff = Math.ceil((d - today)/(1000*60*60*24));
+                    const dlClass = window.getDeadlineClass(nearestDl, false);
+                    headerDlText = `<span class="week-deadline ${dlClass}" style="margin-right:8px; font-size:10px;">${diff === 0 ? 'D-Day' : (diff < 0 ? '지남' : 'D-'+diff)}</span>`;
+                }
+
                 const card = document.createElement('div');
-                card.className = 'subject-card';
+                const isOpen = window.openedSubjectIds.has(subj.id);
+                card.className = 'subject-card' + (isOpen ? ' open' : '');
                 card.dataset.id = subj.id;
 
                 card.innerHTML = `
-                    <div class="subject-card-header" onclick="this.closest('.subject-card').classList.toggle('open')">
+                    <div class="subject-card-header" onclick="window.toggleSubjectCard('${subj.id}')">
                         <div class="subject-color-dot" style="background:${subj.color}"></div>
-                        <div class="subject-name">${subj.name}</div>
+                        <div class="subject-name" style="flex:1;">${subj.name}</div>
                         <div class="subject-meta">
+                            ${headerDlText}
                             <span class="subject-progress-text">${prog.done}/${prog.total} (${prog.pct}%)</span>
                             <button class="subject-edit-btn" onclick="event.stopPropagation(); window.openSubjectModal('${subj.id}')">✏️</button>
                             <span class="subject-chevron">▼</span>
@@ -1715,16 +1768,16 @@
 
                 const weekListEl = card.querySelector(`#weekList_${subj.id}`);
                 (subj.weeks || []).forEach(week => {
-                    const weekDone = (week.lectures||[]).every(l=>l.done);
+                    const weekDone = (week.lectures||[]).length > 0 && (week.lectures||[]).every(l=>l.done);
                     const dlClass = window.getDeadlineClass(week.deadline, weekDone);
-                    let dlText = week.deadline ? week.deadline.replace(/-/g,'.') : '마감일 없음';
+                    let dlText = week.deadline ? week.deadline.replace(/-/g,'.') : '마감일 미정';
                     if(week.deadline) {
                         const today = new Date(); today.setHours(0,0,0,0);
                         const d = new Date(week.deadline);
                         const diff = Math.ceil((d - today)/(1000*60*60*24));
-                        if(weekDone) dlText += ' ✓ 완료!';
-                        else if(diff < 0) dlText += ` (${Math.abs(diff)}일 지남)`;
-                        else if(diff === 0) dlText += ' (D-Day!)';
+                        if(weekDone) dlText += ' ✓';
+                        else if(diff < 0) dlText += ` (지남)`;
+                        else if(diff === 0) dlText += ' (오늘)';
                         else dlText += ` (D-${diff})`;
                     }
 
@@ -1753,6 +1806,15 @@
                     });
                 });
             });
+        };
+
+        window.toggleSubjectCard = (subjId) => {
+            if(window.openedSubjectIds.has(subjId)) {
+                window.openedSubjectIds.delete(subjId);
+            } else {
+                window.openedSubjectIds.add(subjId);
+            }
+            window.renderLectures();
         };
 
         window.toggleLecture = (subjId, weekNum, lecId) => {
@@ -1813,8 +1875,8 @@
             body.innerHTML = `
                 <div class="subj-field-label">과목명 / 색상</div>
                 <div class="subj-name-row">
-                    <input type="color" class="subj-color-pick" id="modalSubjColor" value="${window._modalColor || '#FFB3BA'}">
-                    <input type="text" class="subj-name-input" id="modalSubjName" placeholder="과목명을 입력하세요" value="${window._modalName || ''}" maxlength="20">
+                    <input type="color" class="subj-color-pick" id="modalSubjColor" value="${window._modalColor || '#FFB3BA'}" oninput="window._modalColor=this.value">
+                    <input type="text" class="subj-name-input" id="modalSubjName" placeholder="과목명을 입력하세요" value="${window._modalName || ''}" maxlength="20" oninput="window._modalName=this.value">
                 </div>
                 <div class="subj-field-label">주차 목록</div>
                 <div class="week-edit-section" id="weekEditSection"></div>
@@ -1836,7 +1898,7 @@
                     </div>
                     <div class="week-deadline-row">
                         <span style="font-size:12px;color:var(--text-muted)">마감일</span>
-                        <input type="date" class="week-deadline-input" value="${week.deadline||''}" onchange="_modalWeeks[${wi}].deadline=this.value">
+                        <input type="date" class="week-deadline-input" value="${week.deadline||''}" oninput="_modalWeeks[${wi}].deadline=this.value">
                     </div>
                     <div id="lecEditList_${wi}"></div>
                     <button class="add-lec-btn" onclick="window.addLecToWeek(${wi})">+ 강의 추가</button>
@@ -1847,7 +1909,7 @@
                     const ldiv = document.createElement('div');
                     ldiv.className = 'lec-edit-item';
                     ldiv.innerHTML = `
-                        <input type="text" class="lec-edit-input" value="${lec.title}" placeholder="강의 제목" onchange="_modalWeeks[${wi}].lectures[${li}].title=this.value">
+                        <input type="text" class="lec-edit-input" value="${lec.title}" placeholder="강의 제목" oninput="_modalWeeks[${wi}].lectures[${li}].title=this.value">
                         <button class="lec-remove-btn" onclick="window.removeLecFromWeek(${wi},${li})">×</button>
                     `;
                     lecSec.appendChild(ldiv);
@@ -1856,45 +1918,54 @@
         };
 
         window.addWeekToModal = () => {
+            window._syncModalInputs();
             const nextNum = _modalWeeks.length > 0 ? Math.max(..._modalWeeks.map(w=>w.weekNum))+1 : 1;
             _modalWeeks.push({ weekNum: nextNum, deadline:'', lectures:[{id:'lec_'+Date.now(), title:'1강', done:false}] });
             window._renderWeekEditItems();
-            // 표시 주차 주조
             const sec = document.getElementById('weekEditSection');
             if(sec) sec.lastElementChild && sec.lastElementChild.scrollIntoView({behavior:'smooth', block:'nearest'});
         };
 
         window.removeWeekFromModal = (wi) => {
+            window._syncModalInputs();
             _modalWeeks.splice(wi, 1);
-            // 주차 번호 재조정
             _modalWeeks.forEach((w, i) => w.weekNum = i+1);
             window._renderWeekEditItems();
         };
 
         window.addLecToWeek = (wi) => {
+            window._syncModalInputs();
             const newLec = {id:'lec_'+Date.now(), title:(_modalWeeks[wi].lectures.length+1)+'강', done:false};
             _modalWeeks[wi].lectures.push(newLec);
             window._renderWeekEditItems();
         };
 
         window.removeLecFromWeek = (wi, li) => {
+            window._syncModalInputs();
             _modalWeeks[wi].lectures.splice(li,1);
             window._renderWeekEditItems();
         };
 
-        window.saveSubject = () => {
-            const name = document.getElementById('modalSubjName').value.trim();
-            const color = document.getElementById('modalSubjColor').value;
-            if(!name) { alert('과목명을 입력해 주세요!'); return; }
-
-            // 입력 변경사항 실시간 반영 (오마이트 보완)
+        window._syncModalInputs = () => {
+            const nameInp = document.getElementById('modalSubjName');
+            const colorInp = document.getElementById('modalSubjColor');
+            if(nameInp) window._modalName = nameInp.value;
+            if(colorInp) window._modalColor = colorInp.value;
             _modalWeeks.forEach((week, wi) => {
+                const dlnInp = document.querySelector(`.week-edit-item:nth-child(${wi+1}) .week-deadline-input`);
+                if(dlnInp) week.deadline = dlnInp.value;
                 week.lectures.forEach((lec, li) => {
-                    const input = document.querySelector(`#lecEditList_${wi} .lec-edit-input:nth-child(${li+1})`);
-                    // onchange로 이미 바인딩 되어 있지만 마지막 알리욳 추가 보험
-                    if(input) lec.title = input.value.trim() || lec.title;
+                    const lInp = document.querySelector(`#lecEditList_${wi} .lec-edit-item:nth-child(${li+1}) .lec-edit-input`);
+                    if(lInp) lec.title = lInp.value;
                 });
             });
+        };
+
+        window.saveSubject = () => {
+            window._syncModalInputs();
+            const name = window._modalName.trim();
+            const color = window._modalColor;
+            if(!name) { alert('과목명을 입력해 주세요!'); return; }
 
             if(_editSubjectId) {
                 const idx = window.subjects.findIndex(s => s.id === _editSubjectId);
@@ -1920,11 +1991,90 @@
         };
 
         window.deleteSubject = (subjId) => {
-            if(!confirm('이 과목을 삭제하시가요? (모든 강의 데이터가 사라집니다)')) return;
+            if(!confirm('이 과목을 삭제하시겠나요? (모든 강의 데이터가 사라집니다)')) return;
             window.subjects = window.subjects.filter(s => s.id !== subjId);
+            window.openedSubjectIds.delete(subjId);
             window.closeSubjectModal();
             window.renderLectures();
             window.saveLecturesToCloud();
+        };
+
+        // --- 전체 일정 요약 ---
+        window.openOverview = () => {
+            _editSubjectId = 'OVERVIEW';
+            document.getElementById('subjectModalTitle').innerText = '📅 전체 강의 일정';
+            const body = document.getElementById('subjectModalBody');
+            
+            // 데이터 수집하여 마감일순 정렬
+            let schedule = [];
+            window.subjects.forEach(s => {
+                (s.weeks||[]).forEach(w => {
+                    const doneLectures = (w.lectures||[]).filter(l => l.done).length;
+                    const totalLectures = (w.lectures||[]).length;
+                    schedule.push({
+                        subj: s,
+                        week: w,
+                        done: doneLectures,
+                        total: totalLectures,
+                        isAllDone: totalLectures > 0 && doneLectures === totalLectures
+                    });
+                });
+            });
+
+            schedule.sort((a,b) => {
+                if(!a.week.deadline) return 1;
+                if(!b.week.deadline) return -1;
+                return new Date(a.week.deadline) - new Date(b.week.deadline);
+            });
+
+            let tableHtml = `
+                <table class="overview-table">
+                    <thead>
+                        <tr>
+                            <th>과목/주차</th>
+                            <th>마감일</th>
+                            <th>상태</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            if(schedule.length === 0) {
+                tableHtml += `<tr><td colspan="3" style="text-align:center; padding:40px;">등록된 일정이 없습니다.</td></tr>`;
+            } else {
+                schedule.forEach(item => {
+                    const dlClass = window.getDeadlineClass(item.week.deadline, item.isAllDone);
+                    const dlText = item.week.deadline ? item.week.deadline.substring(5).replace('-','/') : '-';
+                    tableHtml += `
+                        <tr>
+                            <td>
+                                <div class="overview-subj-tag" style="background:${item.subj.color}">${item.subj.name}</div>
+                                <div style="font-weight:600">${item.week.weekNum}주차</div>
+                            </td>
+                            <td>
+                                <div class="week-deadline ${dlClass}" style="display:inline-block">${dlText}</div>
+                            </td>
+                            <td>
+                                <div style="font-size:11px; font-weight:700; color:var(--text-muted)">
+                                    ${item.done}/${item.total}
+                                </div>
+                                <div class="progress-bar-track" style="width:40px; height:4px; margin-top:4px;">
+                                    <div class="progress-bar-fill" style="width:${Math.round(item.done/item.total*100)}%; background-color:${item.subj.color}"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            tableHtml += `</tbody></table>`;
+            body.innerHTML = tableHtml;
+
+            const footer = document.getElementById('subjectModalFooter');
+            footer.innerHTML = `
+                <button class="modal-save-btn" onclick="window.closeSubjectModal()">닫기</button>
+            `;
+            document.getElementById('subjectModal').classList.add('open');
         };
 
         window.saveCategoriesToCloud = async () => {
