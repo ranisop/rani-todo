@@ -262,6 +262,7 @@
             cursor: pointer;
             transition: transform 0.3s;
             object-fit: contain;
+            mix-blend-mode: multiply; /* 흰색 배경 투명 처리 스킬 */
         }
         
         .cat-badge:hover {
@@ -813,7 +814,7 @@
     <div class="app-container">
         <!-- 로그인 화면 (인증 전 노출) -->
         <div id="loginScreen">
-            <img src="./cat1.png" alt="고양이 로고" class="login-logo" style="width: 100px; height: 100px; border-radius: 12px; object-fit: contain; background: transparent;">
+            <img src="./cat1.png" alt="고양이 로고" class="login-logo" style="width: 100px; height: 100px; border-radius: 12px; object-fit: contain; background: transparent; mix-blend-mode: multiply;">
             <h1>라니의 할 일</h1>
             <p>언제 어디서나, 여러 기기에서<br>알록달록 나의 하루를 기록하세요.</p>
             <button class="google-login-btn" onclick="signInWithGoogle()">
