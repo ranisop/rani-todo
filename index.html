@@ -1645,6 +1645,16 @@
                     window.renderTodos();
                 });
 
+                // 강의 데이터 로드 추가
+                const lecDocRef = doc(db, "users", uid, "data", "lectures");
+                const lecSnap = await getDoc(lecDocRef);
+                if (lecSnap.exists()) {
+                    window.subjects = lecSnap.data().items || [];
+                } else {
+                    window.subjects = [];
+                }
+                window.renderLectures();
+
             } catch(e) {
                 console.error("클라우드 데이터 로컬 연동 실패:", e);
                 alert("서버 통신에 문제가 발생했습니다. 권한 설정(규칙)을 확인해주세요.");
