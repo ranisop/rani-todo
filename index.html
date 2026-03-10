@@ -510,6 +510,36 @@
             text-decoration: line-through;
         }
 
+        .todo-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            visibility: hidden;
+        }
+
+        .todo-item:hover .todo-actions {
+            visibility: visible;
+        }
+
+        .move-cat-select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background: none;
+            border: none;
+            color: #ccc;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px;
+            outline: none;
+            text-align: center;
+            transition: color 0.2s;
+        }
+
+        .move-cat-select:hover {
+            color: var(--accent-color);
+        }
+
         .delete-btn {
             background: none;
             border: none;
@@ -517,11 +547,7 @@
             font-size: 18px;
             cursor: pointer;
             padding: 4px;
-            visibility: hidden; 
-        }
-
-        .todo-item:hover .delete-btn {
-            visibility: visible;
+            transition: color 0.2s;
         }
 
         .delete-btn:hover {
@@ -788,7 +814,7 @@
     <div class="app-container">
         <!-- 로그인 화면 (인증 전 노출) -->
         <div id="loginScreen">
-            <div class="login-logo">🤍🐱</div>
+            <div class="login-logo">🐾😸</div>
             <h1>라니의 할 일</h1>
             <p>언제 어디서나, 여러 기기에서<br>알록달록 나의 하루를 기록하세요.</p>
             <button class="google-login-btn" onclick="signInWithGoogle()">
@@ -810,7 +836,7 @@
                     </div>
                     <!-- 우측 -->
                 <div class="header-right">
-                    <div class="cat-badge" onclick="meow()">🤍🐱</div>
+                    <div class="cat-badge" onclick="meow()">😸</div>
                     <button class="logout-btn" onclick="signOutUser()">로그아웃</button>
                     <button class="setting-btn" onclick="openSettings()">⚙️</button>
                 </div>
@@ -1430,12 +1456,25 @@
                                 checkboxStyle = `background-color: ${cat.color}; border-color: ${cat.color};`;
                             }
                             
+                            // 카테고리 이동 드롭다운 옵션 만들기
+                            let optionsHtml = '<option value="" disabled selected>🔄</option>';
+                            window.categories.forEach(c => {
+                                if (c.id !== cat.id) {
+                                    optionsHtml += `<option value="${c.id}">${c.name}</option>`;
+                                }
+                            });
+                            
                             li.innerHTML = `
                                 <div class="todo-checkbox ${todo.completed ? 'completed' : ''}" 
                                      style="${checkboxStyle}"
                                      onclick="window.toggleTodo(${todo.id})"></div>
                                 <div class="todo-text">${todo.text}</div>
-                                <button class="delete-btn" onclick="window.deleteTodo(${todo.id})" title="삭제">×</button>
+                                <div class="todo-actions">
+                                    <select class="move-cat-select" onchange="window.moveTodoCategory(${todo.id}, this.value)" title="다른 카테고리로 이동">
+                                        ${optionsHtml}
+                                    </select>
+                                    <button class="delete-btn" onclick="window.deleteTodo(${todo.id})" title="삭제">×</button>
+                                </div>
                             `;
                             ul.appendChild(li);
                         });
@@ -1476,6 +1515,19 @@
             
             if (todo) {
                 todo.completed = !todo.completed;
+                window.renderCalendar(); 
+                window.renderTodos();
+                window.saveTodosToCloud();
+            }
+        };
+
+        window.moveTodoCategory = (id, newCatId) => {
+            const dateKey = window.formatDateKey(currentDate);
+            const todayTodos = window.todos[dateKey] || [];
+            const todo = todayTodos.find(t => t.id === id);
+            
+            if (todo && newCatId) {
+                todo.categoryId = newCatId;
                 window.renderCalendar(); 
                 window.renderTodos();
                 window.saveTodosToCloud();
