@@ -256,9 +256,12 @@
         }
 
         .cat-badge {
-            font-size: 24px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
             cursor: pointer;
             transition: transform 0.3s;
+            object-fit: contain;
         }
         
         .cat-badge:hover {
@@ -810,7 +813,7 @@
     <div class="app-container">
         <!-- 로그인 화면 (인증 전 노출) -->
         <div id="loginScreen">
-            <div class="login-logo">🐾😸</div>
+            <img src="https://github.com/ranisop/rani-todo/assets/cat1.png" alt="고양이 로고" class="login-logo" style="width: 100px; height: 100px; border-radius: 12px; object-fit: contain; background: transparent;" onerror="this.src='https://raw.githubusercontent.com/google/material-design-icons/master/png/social/pets/materialicons/48dp/2x/baseline_pets_black_48dp.png'">
             <h1>라니의 할 일</h1>
             <p>언제 어디서나, 여러 기기에서<br>알록달록 나의 하루를 기록하세요.</p>
             <button class="google-login-btn" onclick="signInWithGoogle()">
@@ -832,7 +835,7 @@
                     </div>
                     <!-- 우측 -->
                 <div class="header-right">
-                    <div class="cat-badge" onclick="meow()">😸</div>
+                    <img src="https://github.com/ranisop/rani-todo/assets/cat1.png" alt="고양이 뱃지" class="cat-badge" onclick="meow()" onerror="this.src='https://raw.githubusercontent.com/google/material-design-icons/master/png/social/pets/materialicons/48dp/2x/baseline_pets_black_48dp.png'">
                     <button class="logout-btn" onclick="signOutUser()">로그아웃</button>
                     <button class="setting-btn" onclick="openSettings()">⚙️</button>
                 </div>
@@ -1554,8 +1557,43 @@
             const strId = event.dataTransfer.getData("text/plain");
             const todoId = parseInt(strId, 10);
             if(todoId && catId) {
+                // 빈 공간에 떨어뜨렸을 때는 목록 맨 끝으로 이동
                 window.moveTodoCategory(todoId, catId);
             }
+        };
+
+        window.reorderTodo = (dragId, targetId, targetCatId, insertAfter) => {
+            const dateKey = window.formatDateKey(currentDate);
+            const todayTodos = window.todos[dateKey] || [];
+            
+            const dragIndex = todayTodos.findIndex(t => t.id === dragId);
+            if(dragIndex === -1) return;
+            
+            const dragTodo = todayTodos[dragIndex];
+            
+            // 기존 위치에서 제거
+            todayTodos.splice(dragIndex, 1);
+            
+            // 새 타겟 인덱스 찾기
+            let targetIndex = todayTodos.findIndex(t => t.id === targetId);
+            
+            if(targetIndex === -1) {
+                // 혹시 에러 방지 차원 복구
+                todayTodos.push(dragTodo); 
+                return;
+            }
+            
+            dragTodo.categoryId = targetCatId; // 카테고리도 목적지로 맞춤
+            
+            if(insertAfter) {
+                todayTodos.splice(targetIndex + 1, 0, dragTodo);
+            } else {
+                todayTodos.splice(targetIndex, 0, dragTodo);
+            }
+            
+            window.renderCalendar();
+            window.renderTodos();
+            window.saveTodosToCloud();
         };
 
         const style = document.createElement('style');
