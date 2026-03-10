@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>라니의 To-do 공간</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <style>
+        :root {
+            --bg-color: #FDFBF7;
+            --text-main: #333333;
+            --text-muted: #888888;
+            --card-bg: #FFFFFF;
+            --border-color: #EFEFEF;
+            --accent-color: #D4A373;
+        }
+        
+        * {
+            box-sizing: border-box;
+            font-family: 'Pretendard', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            background-color: var(--card-bg);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* ------------------
+           로그인 화면 UI
+           ------------------ */
+        #loginScreen {
+            display: flex; 
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: var(--bg-color);
+            text-align: center;
+            padding: 20px;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9999;
+        }
+        
+        /* 피드백 반영: 로그인 화면 메인 이모지를 귀여운 삼색고양이로 변경 */
+        .login-logo {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: bounce 2s infinite ease-in-out;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        #loginScreen h1 {
+            color: var(--accent-color);
+            margin-bottom: 15px;
+            font-size: 28px;
+        }
+        
+        #loginScreen p {
+            color: var(--text-muted);
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        .google-login-btn {
+            background-color: white;
+            color: var(--text-main);
+            border: 1px solid #ddd;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: all 0.2s;
+        }
+
+        .google-login-btn:hover {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .google-icon {
+            width: 20px; height: 20px;
+        }
+
+        #mainApp {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        /* ------------------
+           헤더 및 상단 컨트롤
+           ------------------ */
+        .header {
+            padding: 24px 20px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--card-bg);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .today-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .today-btn:hover {
+            background-color: var(--bg-color);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .setting-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .setting-btn:hover {
+            color: var(--text-main);
+        }
+        
+        .logout-btn {
+            background: #f0f0f0;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+        
+        .user-avatar {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background-color: #ddd;
+        }
+
+        /* 피드백 반영: 상단 우측 귀여운 고양이 이모지 뱃지 CSS (새싹 위치였던 곳) */
+        .cat-badge {
+            font-size: 24px;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        
+        .cat-badge:hover {
+            transform: scale(1.2) rotate(10deg);
+        }
+
+        .calendar-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px 10px;
+            background-color: var(--card-bg);
+        }
+
+        .month-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .month-label {
+            font-weight: 600;
+            font-size: 16px;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .view-toggle {
+            display: flex;
+            background-color: var(--bg-color);
+            border-radius: 8px;
+            padding: 3px;
+        }
+        
+        .view-toggle button {
+            background: none;
+            border: none;
+            padding: 4px 12px;
+            font-size: 13px;
+            border-radius: 6px;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .view-toggle button.active {
+            background-color: white;
+            color: var(--text-main);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* ------------------
+           캘린더 영역 
+           ------------------ */
+        .calendar-container {
+            padding: 0 20px 15px;
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--card-bg);
+            transition: all 0.3s ease;
+        }
+
+        .days-header {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        
+        .day-name {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .days-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            row-gap: 8px; 
+        }
+
+        .day-cell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            padding: 6px 0;
+            border-radius: 12px;
+            transition: 0.2s;
+            position: relative;
+        }
+        
+        .day-cell:hover {
+            background-color: var(--bg-color);
+        }
+
+        .day-num {
+            font-size: 15px;
+            font-weight: 600;
+            width: 34px;
+            height: 34px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            z-index: 2;
+            color: var(--text-main);
+            background-color: transparent; 
+            border: 1.5px solid transparent; 
+        }
+        
+        .day-cell.other-month .day-num {
+            color: #ddd;
+        }
+
+        .day-cell.selected .day-num {
+            border-color: rgba(0, 0, 0, 0.25);
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.8) inset;
+        }
+        
+        .day-cell:not(.selected) .day-num.has-color {
+            color: rgba(0, 0, 0, 0.7); 
+        }
+        
+        .todo-count {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            height: 12px;
+            font-weight: 600;
+        }
+
+        /* ------------------
+           투두 리스트 영역
+           ------------------ */
+        .todo-section {
+            flex: 1;
+            padding: 24px 20px 30px;
+            background-color: var(--bg-color);
+            overflow-y: auto;
+        }
+
+        .date-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .category-group {
+            margin-bottom: 24px;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .category-color-badge {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+        }
+
+        .category-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .todo-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .todo-item {
+            display: flex;
+            align-items: center;
+            background-color: white;
+            padding: 14px 16px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            gap: 12px;
+        }
+
+        .todo-checkbox {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 2px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            background-color: transparent;
+        }
+
+        .todo-checkbox.completed::after {
+            content: '✓';
+            color: rgba(0,0,0,0.6); 
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .todo-text {
+            flex: 1;
+            font-size: 15px;
+            color: var(--text-main);
+        }
+
+        .todo-item.completed .todo-text {
+            color: var(--text-muted);
+            text-decoration: line-through;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #ddd;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px;
+            visibility: hidden; 
+        }
+
+        .todo-item:hover .delete-btn {
+            visibility: visible;
+        }
+
+        .delete-btn:hover {
+            color: #ff6b6b;
+        }
+
+        /* ------------------
+           입력/카테고리 선택 영역
+           ------------------ */
+        .add-panel {
+            background-color: white;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            margin-top: 10px;
+            position: sticky;
+            bottom: 20px;
+        }
+
+        .category-selector {
+            display: flex;
+            gap: 16px; 
+            margin-bottom: 12px;
+            padding-bottom: 16px; 
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+            scrollbar-width: none; 
+        }
+        .category-selector::-webkit-scrollbar {
+            display: none; 
+        }
+
+        .cat-select-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: 0.2s;
+            padding: 4px;
+            border-radius: 10px;
+        }
+        
+        .cat-select-item.active {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+            background-color: var(--bg-color);
+        }
+
+        .cat-color-circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+        }
+
+        .cat-select-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        
+        .cat-select-item.active .cat-select-label {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .add-todo-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .add-todo-input {
+            flex: 1;
+            border: none;
+            padding: 8px 4px;
+            font-size: 15px;
+            background: transparent;
+            outline: none;
+        }
+
+        .add-todo-btn {
+            background-color: var(--text-main);
+            color: white;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 40px 0;
+            font-size: 14px;
+        }
+
+        /* ------------------
+           카테고리 설정 모달
+           ------------------ */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.4);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            width: 90%;
+            max-width: 400px;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h2 {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        .close-modal-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .cat-edit-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding-right: 5px;
+        }
+
+        .cat-edit-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background-color: var(--bg-color);
+            padding: 10px 14px;
+            border-radius: 12px;
+        }
+
+        .cat-edit-color {
+            width: 30px;
+            height: 30px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            padding: 0;
+            background-color: transparent;
+            overflow: hidden;
+        }
+        
+        .cat-edit-color::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        .cat-edit-color::-webkit-color-swatch {
+            border: none;
+            border-radius: 50%;
+        }
+
+        .cat-edit-name {
+            flex: 1;
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .cat-edit-name:focus {
+            border-color: var(--accent-color);
+        }
+
+        .save-modal-btn {
+            width: 100%;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- 로그인 화면 (인증 전 노출) -->
+        <div id="loginScreen">
+            <div class="login-logo">🐱</div>
+            <h1>라니의 할 일</h1>
+            <p>언제 어디서나, 여러 기기에서<br>알록달록 나의 하루를 기록하세요.</p>
+            <button class="google-login-btn" onclick="signInWithGoogle()">
+                <svg class="google-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
+                Google 계정으로 시작하기
+            </button>
+        </div>
+
+        <!-- 메인 앱 (인증 후 노출) -->
+        <div id="mainApp">
+            <!-- 헤더 -->
+            <header class="header">
+                <div class="user-profile">
+                    <img id="userAvatar" class="user-avatar" src="" alt="유저 이미지">
+                    <span id="userName">라니 님</span>
+                </div>
+                <!-- 우측 -->
+                <div class="header-right">
+                    <div class="cat-badge" onclick="meow()">🐱</div>
+                    <button class="logout-btn" onclick="signOutUser()">로그아웃</button>
+                    <button class="setting-btn" onclick="openSettings()">⚙️</button>
+                </div>
+            </header>
+
+            <!-- 네비게이션 -->
+            <div class="calendar-nav">
+                <div class="month-control">
+                    <button class="nav-btn" onclick="shiftCalendar(-1)">◀</button>
+                    <div class="month-label" id="monthLabel">2026년 3월</div>
+                    <button class="nav-btn" onclick="shiftCalendar(1)">▶</button>
+                </div>
+                
+                <div class="view-toggle">
+                    <button id="btnWeekly" class="active" onclick="setViewMode('weekly')">주간</button>
+                    <button id="btnMonthly" onclick="setViewMode('monthly')">월간</button>
+                </div>
+            </div>
+
+            <!-- 캘린더 요일/날짜 -->
+            <div class="calendar-container">
+                <div class="days-header">
+                    <div class="day-name">일</div>
+                    <div class="day-name">월</div>
+                    <div class="day-name">화</div>
+                    <div class="day-name">수</div>
+                    <div class="day-name">목</div>
+                    <div class="day-name">금</div>
+                    <div class="day-name">토</div>
+                </div>
+                <div class="days-grid" id="calendarGrid">
+                    <!-- 날짜 렌더링 -->
+                </div>
+            </div>
+
+            <!-- 할일 리스트 영역 -->
+            <main class="todo-section">
+                <div class="date-title" id="selectedDateLabel">3월 10일 (화)</div>
+
+                <div id="todoListContainer"></div>
+                
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    등록된 할 일이 없어요 :)<br>아래에서 추가를 해보세요!
+                </div>
+
+                <!-- 하단 고정 투두 추가 폼 -->
+                <div class="add-panel">
+                    <!-- 카테고리 선택기 -->
+                    <div class="category-selector" id="categorySelector">
+                        <!-- JS 렌더링 -->
+                    </div>
+
+                    <form class="add-todo-container" onsubmit="addTodo(event)">
+                        <input type="text" id="todoInput" class="add-todo-input" placeholder="새로운 할 일을 입력하세요..." autocomplete="off">
+                        <button type="submit" id="addTodoBtn" class="add-todo-btn">+</button>
+                    </form>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 카테고리 설정 모달 -->
+    <div class="modal-overlay" id="settingModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>카테고리 편집</h2>
+                <button class="close-modal-btn" onclick="closeSettings()">×</button>
+            </div>
+            
+            <div class="cat-edit-list" id="catEditList"></div>
+            
+            <button class="save-modal-btn" onclick="saveSettings()">안전하게 저장하기</button>
+        </div>
+    </div>
+
+    <!-- Firebase v10 모듈러 스크립트 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
+        // 사용자가 발급받은 Firebase 설정 코드
+        const firebaseConfig = {
+            apiKey: "AIzaSyCd8dFUn1fKvgyFC8MZV62uQTqRmX102eg",
+            authDomain: "rani-todo.firebaseapp.com",
+            projectId: "rani-todo",
+            storageBucket: "rani-todo.firebasestorage.app",
+            messagingSenderId: "146508449310",
+            appId: "1:146508449310:web:b8567010d3fbb0d22e100f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        let currentUser = null;
+        let unsubscribeTodos = null;
+
+        const DEFAULT_CATEGORIES = [
+            { id: 'cat1', name: '공부', color: '#FFB3BA' },
+            { id: 'cat2', name: '운동', color: '#FFDFBA' },
+            { id: 'cat3', name: '업무', color: '#FFFFBA' },
+            { id: 'cat4', name: '약속', color: '#BAFFC9' },
+            { id: 'cat5', name: '취미', color: '#BAE1FF' },
+            { id: 'cat6', name: '기타', color: '#E6B3FF' }
+        ];
+
+        window.categories = [];
+        window.activeCategoryId = '';
+        window.todos = {}; 
+
+        let currentDate = new Date();
+        let currentRefDate = new Date(); 
+        let viewMode = 'weekly'; 
+
+        // --- 로그인 시스템 ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'flex';
+                
+                document.getElementById('userName').innerText = user.displayName + " 님";
+                document.getElementById('userAvatar').src = user.photoURL || '';
+
+                await loadDataFromCloud();
+                
+            } else {
+                currentUser = null;
+                document.getElementById('loginScreen').style.display = 'flex';
+                document.getElementById('mainApp').style.display = 'none';
+                if(unsubscribeTodos) unsubscribeTodos(); 
+            }
+        });
+
+        window.signInWithGoogle = () => {
+            // Firebase Auth 오류를 잡기 위한 로직
+            signInWithPopup(auth, provider).catch(error => {
+                let errorMsg = "로그인 도중 문제가 발생했습니다.\n";
+                // configuration-not-found 에러는 firebase Authentication 세팅이 안되었을 때 주로 발생합니다.
+                if(error.code === 'auth/configuration-not-found' || error.message.includes('configuration')) {
+                    errorMsg += "\n[해결 방법]\nFirebase 콘솔의 [Authentication(인증)] 메뉴에서 [Google] 로그인 제공업체를 '사용 설정(Enable)' 하지 않으셨습니다. 설정 후 다시 시도해주세요!";
+                } else if(window.location.protocol === 'file:') {
+                    errorMsg += "\n[주의] file:// 주소에서는 구글 로그인이 차단될 수 있습니다. Live Server나 http://localhost 로 실행해주세요.";
+                } else {
+                    errorMsg += `\n(${error.code})`;
+                }
+                alert(errorMsg);
+            });
+        };
+
+        window.signOutUser = () => {
+            if(confirm("로그아웃 하시겠습니까?")) {
+                signOut(auth);
+            }
+        };
+
+        // 귀여운 고양이 클릭 이벤트!
+        window.meow = () => {
+            const sounds = ["야옹!", "냐암~", "고르륵...", "미야옹~"];
+            const random = sounds[Math.floor(Math.random() * sounds.length)];
+            const catBadge = document.querySelector('.cat-badge');
+            
+            catBadge.style.transform = 'scale(1.3) rotate(-10deg)';
+            setTimeout(() => {
+                catBadge.style.transform = '';
+            }, 300);
+            
+            // 작은 말풍선 토스트로 고양이 소리 내기
+            const toast = document.createElement('div');
+            toast.innerText = random;
+            toast.style.position = 'absolute';
+            toast.style.top = '70px';
+            toast.style.right = '70px';
+            toast.style.background = 'white';
+            toast.style.padding = '5px 10px';
+            toast.style.borderRadius = '20px';
+            toast.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+            toast.style.fontSize = '12px';
+            toast.style.zIndex = '1000';
+            toast.style.animation = 'slideIn 0.3s ease, fadeOut 0.5s ease 1s forwards';
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => toast.remove(), 1600);
+        };
+
+        // --- 생략 (이후 로직은 클라우드 및 렌더링 유지) ---
+        async function loadDataFromCloud() {
+            if(!currentUser) return;
+            const uid = currentUser.uid;
+
+            try {
+                const catDocRef = doc(db, "users", uid, "data", "categories");
+                const catSnap = await getDoc(catDocRef);
+
+                if (catSnap.exists()) {
+                    window.categories = catSnap.data().items;
+                } else {
+                    const localCat = localStorage.getItem('rani_categories_v1');
+                    window.categories = localCat ? JSON.parse(localCat) : [...DEFAULT_CATEGORIES];
+                    await setDoc(catDocRef, { items: window.categories });
+                }
+                window.activeCategoryId = window.categories[0].id;
+                window.initCategorySelector(); 
+
+                const todosDocRef = doc(db, "users", uid, "data", "todos");
+                
+                if (unsubscribeTodos) unsubscribeTodos();
+                
+                unsubscribeTodos = onSnapshot(todosDocRef, async (docSnap) => {
+                    if (docSnap.exists()) {
+                        window.todos = docSnap.data().items || {};
+                    } else {
+                        const localTodos = localStorage.getItem('rani_todos_v4');
+                        window.todos = localTodos ? JSON.parse(localTodos) : {};
+                        await setDoc(todosDocRef, { items: window.todos });
+                    }
+                    window.renderCalendar();
+                    window.renderTodos();
+                });
+
+            } catch(e) {
+                console.error("클라우드 데이터 로컬 연동 실패:", e);
+                alert("서버 통신에 문제가 발생했습니다. 권한 설정(규칙)을 확인해주세요.");
+            }
+        }
+
+        window.saveTodosToCloud = async () => {
+            if(!currentUser) return;
+            const todosDocRef = doc(db, "users", currentUser.uid, "data", "todos");
+            try {
+                await setDoc(todosDocRef, { items: window.todos });
+            } catch(e) {
+                console.error("저장 실패:", e);
+                alert("저장 권한이 거부되었습니다.");
+            }
+        }
+
+        window.saveCategoriesToCloud = async () => {
+            if(!currentUser) return;
+            const catDocRef = doc(db, "users", currentUser.uid, "data", "categories");
+            try {
+                await setDoc(catDocRef, { items: window.categories });
+            } catch(e) {
+                console.error("카테고리 저장 실패:", e);
+            }
+        }
+
+        // --- 유틸리티 및 기존 스크립트 연결 ---
+        window.formatDateKey = (date) => {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+
+        window.getStartOfWeek = (date) => {
+            const temp = new Date(date);
+            const day = temp.getDay();
+            const diff = temp.getDate() - day; 
+            return new Date(temp.setDate(diff));
+        };
+
+        window.getFirstDayOfMonth = (date) => {
+            return new Date(date.getFullYear(), date.getMonth(), 1);
+        };
+        
+        window.getCategoryColor = (catId) => {
+            const cat = window.categories.find(c => c.id === catId);
+            return cat ? cat.color : '#EFEFEF'; 
+        };
+
+        // --- UI ---
+        window.initCategorySelector = () => {
+            const selector = document.getElementById('categorySelector');
+            selector.innerHTML = '';
+            
+            window.categories.forEach(cat => {
+                const item = document.createElement('div');
+                item.className = 'cat-select-item' + (window.activeCategoryId === cat.id ? ' active' : '');
+                
+                item.innerHTML = `
+                    <div class="cat-color-circle" style="background-color: ${cat.color}"></div>
+                    <div class="cat-select-label">${cat.name}</div>
+                `;
+                
+                item.onclick = () => {
+                    window.activeCategoryId = cat.id;
+                    window.initCategorySelector(); 
+                    window.updateAddButtonColor();
+                };
+                selector.appendChild(item);
+            });
+            window.updateAddButtonColor();
+        };
+
+        window.updateAddButtonColor = () => {
+            const btn = document.getElementById('addTodoBtn');
+            const color = window.getCategoryColor(window.activeCategoryId);
+            btn.style.backgroundColor = color;
+            btn.style.color = 'rgba(0,0,0,0.6)';
+        };
+
+        window.openSettings = () => {
+            const modal = document.getElementById('settingModal');
+            const list = document.getElementById('catEditList');
+            list.innerHTML = '';
+
+            window.categories.forEach(cat => {
+                const item = document.createElement('div');
+                item.className = 'cat-edit-item';
+                item.innerHTML = `
+                    <input type="color" class="cat-edit-color" id="color_${cat.id}" value="${cat.color}">
+                    <input type="text" class="cat-edit-name" id="name_${cat.id}" value="${cat.name}" maxlength="6">
+                `;
+                list.appendChild(item);
+            });
+
+            modal.style.display = 'flex';
+        };
+
+        window.closeSettings = () => {
+            document.getElementById('settingModal').style.display = 'none';
+        };
+
+        window.saveSettings = () => {
+            window.categories.forEach(cat => {
+                const nameInput = document.getElementById(`name_${cat.id}`);
+                const colorInput = document.getElementById(`color_${cat.id}`);
+                if (nameInput && colorInput) {
+                    cat.name = nameInput.value.trim() || '이름없음';
+                    cat.color = colorInput.value;
+                }
+            });
+            
+            window.saveCategoriesToCloud(); 
+            window.closeSettings();
+            window.initCategorySelector(); 
+            window.renderCalendar(); 
+            window.renderTodos(); 
+        };
+
+        // --- 캘린더 색상 분할 ---
+        window.getGradientStyleForDate = (dateKey) => {
+            const dayTodos = window.todos[dateKey] || [];
+            const completedCats = new Set();
+            
+            dayTodos.forEach(t => {
+                if(t.completed) completedCats.add(t.categoryId);
+            });
+
+            if(completedCats.size === 0) return ''; 
+
+            const colors = Array.from(completedCats).map(id => window.getCategoryColor(id));
+            const len = colors.length;
+            
+            if (len === 1) {
+                return `background-color: ${colors[0]};`; 
+            }
+
+            const step = 360 / len;
+            let gradValues = [];
+            colors.forEach((col, idx) => {
+                const startAngle = idx * step;
+                const endAngle = (idx + 1) * step;
+                gradValues.push(`${col} ${startAngle}deg ${endAngle}deg`);
+            });
+
+            return `background: conic-gradient(${gradValues.join(', ')});`;
+        };
+
+        // --- 캘린더 렌더링 ---
+        window.updateMonthLabel = () => {
+            const y = currentRefDate.getFullYear();
+            const m = currentRefDate.getMonth() + 1;
+            document.getElementById('monthLabel').innerText = `${y}년 ${m}월`;
+        };
+
+        window.setViewMode = (mode) => {
+            viewMode = mode;
+            document.getElementById('btnWeekly').classList.toggle('active', mode === 'weekly');
+            document.getElementById('btnMonthly').classList.toggle('active', mode === 'monthly');
+            window.renderCalendar();
+        };
+
+        window.shiftCalendar = (offset) => {
+            if (viewMode === 'weekly') {
+                currentRefDate.setDate(currentRefDate.getDate() + (offset * 7));
+                const newWeekStart = window.getStartOfWeek(currentRefDate);
+                currentDate = new Date(newWeekStart);
+                currentRefDate = new Date(newWeekStart);
+            } else {
+                currentRefDate.setMonth(currentRefDate.getMonth() + offset);
+                const newMonthStart = window.getFirstDayOfMonth(currentRefDate);
+                currentDate = new Date(newMonthStart);
+                currentRefDate = new Date(newMonthStart);
+            }
+            window.renderCalendar();
+            window.renderTodos();
+        };
+
+        window.renderCalendar = () => {
+            window.updateMonthLabel();
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+            
+            const datesToRender = [];
+
+            if (viewMode === 'weekly') {
+                const startOfWeek = window.getStartOfWeek(currentRefDate);
+                for (let i = 0; i < 7; i++) {
+                    const d = new Date(startOfWeek);
+                    d.setDate(d.getDate() + i);
+                    datesToRender.push({ date: d, isOtherMonth: false });
+                }
+            } else { 
+                const year = currentRefDate.getFullYear();
+                const month = currentRefDate.getMonth();
+                const firstDay = new Date(year, month, 1);
+                const lastDay = new Date(year, month + 1, 0);
+                
+                const startDayIndex = firstDay.getDay();
+                for (let i = startDayIndex - 1; i >= 0; i--) {
+                    const d = new Date(year, month, -i);
+                    datesToRender.push({ date: d, isOtherMonth: true });
+                }
+                
+                for (let i = 1; i <= lastDay.getDate(); i++) {
+                    const d = new Date(year, month, i);
+                    datesToRender.push({ date: d, isOtherMonth: false });
+                }
+                
+                const endDayIndex = lastDay.getDay();
+                if (endDayIndex < 6) {
+                    for (let i = 1; i <= 6 - endDayIndex; i++) {
+                        const d = new Date(year, month + 1, i);
+                        datesToRender.push({ date: d, isOtherMonth: true });
+                    }
+                }
+            }
+
+            datesToRender.forEach(item => {
+                const dayDate = item.date;
+                const dateKey = window.formatDateKey(dayDate);
+                const isSelected = dateKey === window.formatDateKey(currentDate);
+                const isOtherMonth = item.isOtherMonth;
+                
+                const totalCount = window.todos[dateKey] ? window.todos[dateKey].length : 0;
+                const bgColorStyle = window.getGradientStyleForDate(dateKey);
+                const hasColorStr = bgColorStyle ? 'has-color' : '';
+
+                const cell = document.createElement('div');
+                cell.className = 'day-cell' 
+                    + (isSelected ? ' selected' : '') 
+                    + (isOtherMonth ? ' other-month' : '');
+                
+                cell.onclick = () => window.selectDate(dayDate);
+
+                const countText = totalCount > 0 ? totalCount : '';
+
+                cell.innerHTML = `
+                    <div class="day-num ${hasColorStr}" style="${bgColorStyle}">
+                        ${dayDate.getDate()}
+                    </div>
+                    <div class="todo-count">${countText}</div>
+                `;
+                
+                grid.appendChild(cell);
+            });
+        };
+
+        window.selectDate = (date) => {
+            currentDate = new Date(date);
+            currentRefDate = new Date(date); 
+            window.renderCalendar();
+            window.renderTodos();
+        };
+
+        window.goToToday = () => {
+            const today = new Date();
+            currentDate = today;
+            currentRefDate = today;
+            window.renderCalendar();
+            window.renderTodos();
+        };
+        
+        window.renderTodos = () => {
+            const dateKey = window.formatDateKey(currentDate);
+            const daysOfKorea = ['일', '월', '화', '수', '목', '금', '토'];
+            
+            document.getElementById('selectedDateLabel').innerText = 
+                `${currentDate.getMonth() + 1}월 ${currentDate.getDate()}일 (${daysOfKorea[currentDate.getDay()]})`;
+
+            const container = document.getElementById('todoListContainer');
+            const emptyState = document.getElementById('emptyState');
+            container.innerHTML = '';
+
+            const dayTodos = window.todos[dateKey] || [];
+
+            if (dayTodos.length === 0) {
+                emptyState.style.display = 'block';
+            } else {
+                emptyState.style.display = 'none';
+                
+                const grouped = {};
+                dayTodos.forEach(todo => {
+                    const catTarget = window.categories.find(c => c.id === todo.categoryId) ? todo.categoryId : window.categories[0].id;
+                    if(!grouped[catTarget]) grouped[catTarget] = [];
+                    grouped[catTarget].push(todo);
+                });
+
+                window.categories.forEach(cat => {
+                    if (grouped[cat.id]) {
+                        const groupDiv = document.createElement('div');
+                        groupDiv.className = 'category-group';
+                        
+                        groupDiv.innerHTML = `
+                            <div class="category-header">
+                                <div class="category-color-badge" style="background-color: ${cat.color}"></div>
+                                <div class="category-name">${cat.name}</div>
+                            </div>
+                            <ul class="todo-list" id="list-${cat.id}"></ul>
+                        `;
+                        container.appendChild(groupDiv);
+                        
+                        const ul = groupDiv.querySelector(`#list-${cat.id}`);
+                        
+                        grouped[cat.id].forEach(todo => {
+                            const li = document.createElement('li');
+                            li.className = 'todo-item' + (todo.completed ? ' completed' : '');
+                            
+                            let checkboxStyle = '';
+                            if(todo.completed) {
+                                checkboxStyle = `background-color: ${cat.color}; border-color: ${cat.color};`;
+                            }
+                            
+                            li.innerHTML = `
+                                <div class="todo-checkbox ${todo.completed ? 'completed' : ''}" 
+                                     style="${checkboxStyle}"
+                                     onclick="window.toggleTodo(${todo.id})"></div>
+                                <div class="todo-text">${todo.text}</div>
+                                <button class="delete-btn" onclick="window.deleteTodo(${todo.id})" title="삭제">×</button>
+                            `;
+                            ul.appendChild(li);
+                        });
+                    }
+                });
+            }
+        };
+
+        window.addTodo = (event) => {
+            event.preventDefault();
+            const input = document.getElementById('todoInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const dateKey = window.formatDateKey(currentDate);
+            if (!window.todos[dateKey]) {
+                window.todos[dateKey] = [];
+            }
+            
+            window.todos[dateKey].push({
+                id: Date.now(),
+                text: text,
+                completed: false,
+                categoryId: window.activeCategoryId 
+            });
+
+            window.renderCalendar(); 
+            window.renderTodos();
+            input.value = '';
+            
+            window.saveTodosToCloud();
+        };
+
+        window.toggleTodo = (id) => {
+            const dateKey = window.formatDateKey(currentDate);
+            const todayTodos = window.todos[dateKey];
+            const todo = todayTodos.find(t => t.id === id);
+            
+            if (todo) {
+                todo.completed = !todo.completed;
+                window.renderCalendar(); 
+                window.renderTodos();
+                window.saveTodosToCloud();
+            }
+        };
+
+        window.deleteTodo = (id) => {
+            const dateKey = window.formatDateKey(currentDate);
+            window.todos[dateKey] = window.todos[dateKey].filter(t => t.id !== id);
+            if(window.todos[dateKey].length === 0) delete window.todos[dateKey];
+            window.renderCalendar();
+            window.renderTodos();
+            window.saveTodosToCloud();
+        };
+
+        // UI를 위한 더미 스타일 키프레임 (고양이 말풍선 애니메이션)
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        `;
+        document.head.appendChild(style);
+
+        window.goToToday(); 
+
+    </script>
+</body>
+</html>
