@@ -258,11 +258,9 @@
         .cat-badge {
             width: 32px;
             height: 32px;
-            border-radius: 50%;
             cursor: pointer;
             transition: transform 0.3s;
             object-fit: contain;
-            mix-blend-mode: multiply; /* 흰색 배경 투명 처리 스킬 */
         }
         
         .cat-badge:hover {
@@ -814,7 +812,7 @@
     <div class="app-container">
         <!-- 로그인 화면 (인증 전 노출) -->
         <div id="loginScreen">
-            <img src="./cat1.png" alt="고양이 로고" class="login-logo" style="width: 100px; height: 100px; border-radius: 12px; object-fit: contain; background: transparent; mix-blend-mode: multiply;">
+            <img src="./cat1.png" alt="고양이 로고" class="login-logo" style="width: 100px; height: 100px; object-fit: contain; background: transparent;">
             <h1>라니의 할 일</h1>
             <p>언제 어디서나, 여러 기기에서<br>알록달록 나의 하루를 기록하세요.</p>
             <button class="google-login-btn" onclick="signInWithGoogle()">
@@ -1472,6 +1470,40 @@
                                 <button class="delete-btn" onclick="window.deleteTodo(${todo.id})" title="삭제">×</button>
                             </div>
                         `;
+
+                        // --- 순서 변경을 위한 개별 항목 드롭 이벤트 ---
+                        li.ondragover = (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const bounding = li.getBoundingClientRect();
+                            const offset = bounding.y + (bounding.height / 2);
+                            if (e.clientY - offset > 0) {
+                                li.style.borderBottom = "2px dashed #999";
+                                li.style.borderTop = "";
+                            } else {
+                                li.style.borderTop = "2px dashed #999";
+                                li.style.borderBottom = "";
+                            }
+                        };
+                        li.ondragleave = (e) => {
+                            li.style.borderTop = "";
+                            li.style.borderBottom = "";
+                        };
+                        li.ondrop = (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            li.style.borderTop = "";
+                            li.style.borderBottom = "";
+                            const strId = e.dataTransfer.getData("text/plain");
+                            const dragTodoId = parseInt(strId, 10);
+                            if (dragTodoId && dragTodoId !== todo.id) {
+                                const bounding = li.getBoundingClientRect();
+                                const offset = bounding.y + (bounding.height / 2);
+                                const insertAfter = e.clientY - offset > 0;
+                                window.reorderTodo(dragTodoId, todo.id, cat.id, insertAfter);
+                            }
+                        };
+                        
                         ul.appendChild(li);
                     });
                 });
@@ -1571,28 +1603,20 @@
             if(dragIndex === -1) return;
             
             const dragTodo = todayTodos[dragIndex];
+            todayTodos.splice(dragIndex, 1); // 기존 위치에서 제거
             
-            // 기존 위치에서 제거
-            todayTodos.splice(dragIndex, 1);
-            
-            // 새 타겟 인덱스 찾기
             let targetIndex = todayTodos.findIndex(t => t.id === targetId);
-            
             if(targetIndex === -1) {
-                // 혹시 에러 방지 차원 복구
                 todayTodos.push(dragTodo); 
-                return;
-            }
-            
-            dragTodo.categoryId = targetCatId; // 카테고리도 목적지로 맞춤
-            
-            if(insertAfter) {
-                todayTodos.splice(targetIndex + 1, 0, dragTodo);
             } else {
-                todayTodos.splice(targetIndex, 0, dragTodo);
+                dragTodo.categoryId = targetCatId; // 카테고리 업데이트
+                if(insertAfter) {
+                    todayTodos.splice(targetIndex + 1, 0, dragTodo);
+                } else {
+                    todayTodos.splice(targetIndex, 0, dragTodo);
+                }
             }
             
-            window.renderCalendar();
             window.renderTodos();
             window.saveTodosToCloud();
         };
