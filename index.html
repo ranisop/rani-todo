@@ -466,6 +466,15 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+            min-height: 20px;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .todo-list.drag-over {
+            background-color: rgba(0,0,0,0.03);
+            border: 2px dashed #ddd; /* 드롭 가능한 영역 표시 */
+            padding: 8px;
         }
 
         .todo-item {
@@ -476,6 +485,12 @@
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.03);
             gap: 12px;
+            cursor: grab;
+            transition: opacity 0.2s;
+        }
+
+        .todo-item:active {
+            cursor: grabbing;
         }
 
         .todo-checkbox {
@@ -519,25 +534,6 @@
 
         .todo-item:hover .todo-actions {
             visibility: visible;
-        }
-
-        .move-cat-select {
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            background: none;
-            border: none;
-            color: #ccc;
-            font-size: 16px;
-            cursor: pointer;
-            padding: 4px;
-            outline: none;
-            text-align: center;
-            transition: color 0.2s;
-        }
-
-        .move-cat-select:hover {
-            color: var(--accent-color);
         }
 
         .delete-btn {
@@ -1432,53 +1428,48 @@
                 });
 
                 window.categories.forEach(cat => {
-                    if (grouped[cat.id]) {
-                        const groupDiv = document.createElement('div');
-                        groupDiv.className = 'category-group';
+                    const catTodos = grouped[cat.id] || [];
+                    
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'category-group';
+                    
+                    groupDiv.innerHTML = `
+                        <div class="category-header">
+                            <div class="category-color-badge" style="background-color: ${cat.color}"></div>
+                            <div class="category-name">${cat.name}</div>
+                        </div>
+                        <ul class="todo-list" id="list-${cat.id}"
+                            ondragover="window.allowDrop(event)"
+                            ondragleave="window.leaveDrop(event)"
+                            ondrop="window.dropTodo(event, '${cat.id}')"></ul>
+                    `;
+                    container.appendChild(groupDiv);
+                    
+                    const ul = groupDiv.querySelector(`#list-${cat.id}`);
+                    
+                    catTodos.forEach(todo => {
+                        const li = document.createElement('li');
+                        li.className = 'todo-item' + (todo.completed ? ' completed' : '');
+                        li.draggable = true;
+                        li.ondragstart = (e) => window.dragTodoStart(e, todo.id);
+                        li.ondragend = (e) => { e.target.style.opacity = '1'; };
                         
-                        groupDiv.innerHTML = `
-                            <div class="category-header">
-                                <div class="category-color-badge" style="background-color: ${cat.color}"></div>
-                                <div class="category-name">${cat.name}</div>
+                        let checkboxStyle = '';
+                        if(todo.completed) {
+                            checkboxStyle = `background-color: ${cat.color}; border-color: ${cat.color};`;
+                        }
+                        
+                        li.innerHTML = `
+                            <div class="todo-checkbox ${todo.completed ? 'completed' : ''}" 
+                                 style="${checkboxStyle}"
+                                 onclick="window.toggleTodo(${todo.id})"></div>
+                            <div class="todo-text">${todo.text}</div>
+                            <div class="todo-actions">
+                                <button class="delete-btn" onclick="window.deleteTodo(${todo.id})" title="삭제">×</button>
                             </div>
-                            <ul class="todo-list" id="list-${cat.id}"></ul>
                         `;
-                        container.appendChild(groupDiv);
-                        
-                        const ul = groupDiv.querySelector(`#list-${cat.id}`);
-                        
-                        grouped[cat.id].forEach(todo => {
-                            const li = document.createElement('li');
-                            li.className = 'todo-item' + (todo.completed ? ' completed' : '');
-                            
-                            let checkboxStyle = '';
-                            if(todo.completed) {
-                                checkboxStyle = `background-color: ${cat.color}; border-color: ${cat.color};`;
-                            }
-                            
-                            // 카테고리 이동 드롭다운 옵션 만들기
-                            let optionsHtml = '<option value="" disabled selected>🔄</option>';
-                            window.categories.forEach(c => {
-                                if (c.id !== cat.id) {
-                                    optionsHtml += `<option value="${c.id}">${c.name}</option>`;
-                                }
-                            });
-                            
-                            li.innerHTML = `
-                                <div class="todo-checkbox ${todo.completed ? 'completed' : ''}" 
-                                     style="${checkboxStyle}"
-                                     onclick="window.toggleTodo(${todo.id})"></div>
-                                <div class="todo-text">${todo.text}</div>
-                                <div class="todo-actions">
-                                    <select class="move-cat-select" onchange="window.moveTodoCategory(${todo.id}, this.value)" title="다른 카테고리로 이동">
-                                        ${optionsHtml}
-                                    </select>
-                                    <button class="delete-btn" onclick="window.deleteTodo(${todo.id})" title="삭제">×</button>
-                                </div>
-                            `;
-                            ul.appendChild(li);
-                        });
-                    }
+                        ul.appendChild(li);
+                    });
                 });
             }
         };
@@ -1541,6 +1532,30 @@
             window.renderCalendar();
             window.renderTodos();
             window.saveTodosToCloud();
+        };
+
+        window.dragTodoStart = (event, id) => {
+            event.dataTransfer.setData("text/plain", id);
+            event.target.style.opacity = '0.5';
+        };
+
+        window.allowDrop = (event) => {
+            event.preventDefault(); // 드롭 허용을 위해 필수
+            event.currentTarget.classList.add('drag-over');
+        };
+
+        window.leaveDrop = (event) => {
+            event.currentTarget.classList.remove('drag-over');
+        };
+
+        window.dropTodo = (event, catId) => {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+            const strId = event.dataTransfer.getData("text/plain");
+            const todoId = parseInt(strId, 10);
+            if(todoId && catId) {
+                window.moveTodoCategory(todoId, catId);
+            }
         };
 
         const style = document.createElement('style');
