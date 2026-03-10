@@ -788,7 +788,7 @@
     <div class="app-container">
         <!-- 로그인 화면 (인증 전 노출) -->
         <div id="loginScreen">
-            <div class="login-logo">🐱</div>
+            <div class="login-logo">🤍🐱</div>
             <h1>라니의 할 일</h1>
             <p>언제 어디서나, 여러 기기에서<br>알록달록 나의 하루를 기록하세요.</p>
             <button class="google-login-btn" onclick="signInWithGoogle()">
@@ -809,11 +809,11 @@
                         <span id="userName">라니 님</span>
                     </div>
                     <!-- 우측 -->
-                    <div class="header-right">
-                        <div class="cat-badge" onclick="meow()">🐱</div>
-                        <button class="logout-btn" onclick="signOutUser()">로그아웃</button>
-                        <button class="setting-btn" onclick="openSettings()">⚙️</button>
-                    </div>
+                <div class="header-right">
+                    <div class="cat-badge" onclick="meow()">🤍🐱</div>
+                    <button class="logout-btn" onclick="signOutUser()">로그아웃</button>
+                    <button class="setting-btn" onclick="openSettings()">⚙️</button>
+                </div>
                 </header>
 
                 <!-- 네비게이션 -->
@@ -1126,16 +1126,51 @@
             const list = document.getElementById('catEditList');
             list.innerHTML = '';
 
-            window.categories.forEach(cat => {
+            window.categories.forEach((cat, index) => {
                 const item = document.createElement('div');
                 item.className = 'cat-edit-item';
+                
+                // 첫번째와 마지막 항목 버튼 가리기
+                const upDisabled = index === 0 ? 'visibility:hidden' : '';
+                const downDisabled = index === window.categories.length - 1 ? 'visibility:hidden' : '';
+
                 item.innerHTML = `
+                    <div class="cat-order-controls">
+                        <button class="cat-order-btn" style="${upDisabled}" onclick="window.moveCategory(${index}, -1)">▲</button>
+                        <button class="cat-order-btn" style="${downDisabled}" onclick="window.moveCategory(${index}, 1)">▼</button>
+                    </div>
                     <input type="color" class="cat-edit-color" id="color_${cat.id}" value="${cat.color}">
                     <input type="text" class="cat-edit-name" id="name_${cat.id}" value="${cat.name}" maxlength="8">
-                    <button class="cat-delete-btn" onclick="window.removeCategory('${cat.id}')">×</button>
+                    <button class="cat-delete-btn" onclick="window.removeCategory('${cat.id}')" title="삭제">×</button>
                 `;
                 list.appendChild(item);
             });
+        };
+
+        window.moveCategory = (index, dir) => {
+            window.categories.forEach(cat => {
+                const nameInput = document.getElementById(`name_${cat.id}`);
+                const colorInput = document.getElementById(`color_${cat.id}`);
+                if (nameInput && colorInput) {
+                    cat.name = nameInput.value.trim() || '이름없음';
+                    cat.color = colorInput.value;
+                }
+            });
+
+            const targetIndex = index + dir;
+            if (targetIndex >= 0 && targetIndex < window.categories.length) {
+                const temp = window.categories[index];
+                window.categories[index] = window.categories[targetIndex];
+                window.categories[targetIndex] = temp;
+                window.renderSettingsCategories();
+                
+                setTimeout(() => {
+                    const list = document.getElementById('catEditList');
+                    if (list.children[targetIndex]) {
+                        list.children[targetIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                }, 10);
+            }
         };
 
         window.addNewCategory = () => {
