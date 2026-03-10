@@ -706,6 +706,53 @@
             color: var(--text-muted);
         }
 
+        /* 루틴 관리 전용 스타일 */
+        .routine-item {
+            background-color: var(--bg-color);
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .routine-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .routine-name {
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .routine-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .routine-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            margin-right: 6px;
+        }
+        .routine-empty {
+            text-align: center;
+            padding: 30px 0;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+        .routine-badge {
+            font-size: 10px;
+            background: #eee;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+            color: #888;
+        }
+
         .cat-edit-list {
             display: flex;
             flex-direction: column;
@@ -1421,6 +1468,7 @@
 
                             <form class="add-todo-container" onsubmit="addTodo(event)">
                                 <input type="text" id="todoInput" class="add-todo-input" placeholder="새로운 할 일을 입력하세요..." autocomplete="off">
+                                <button type="button" class="add-todo-btn" style="margin-right:8px; background-color:#f0f0f0; color:#888; font-size:16px;" onclick="window.openRoutineModal()">🔁</button>
                                 <button type="submit" id="addTodoBtn" class="add-todo-btn">+</button>
                             </form>
                         </div>
@@ -1481,6 +1529,43 @@
         </div>
     </div>
 
+    <!-- 루틴 관리 모달 -->
+    <div class="modal-overlay" id="routineModal">
+        <div class="modal-content" style="max-height: 85vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2>루틴(반복) 관리</h2>
+                <button class="close-modal-btn" onclick="window.closeRoutineModal()">×</button>
+            </div>
+            
+            <div id="routineList" style="margin-bottom: 20px;">
+                <!-- 루틴 목록 렌더링 -->
+            </div>
+
+            <div style="padding: 16px; background: var(--bg-color); border-radius: 16px;">
+                <h3 style="font-size: 14px; margin-bottom: 12px;">새 루틴 추가</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <input type="text" id="newRoutineName" class="cat-edit-name" placeholder="루틴 이름을 입력하세요" style="width:100%">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="newRoutineCat" class="cat-edit-name" style="flex:1;">
+                            <!-- 카테고리 옵션 -->
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <div style="flex:1;">
+                            <label style="font-size:11px; color:var(--text-muted)">시작일</label>
+                            <input type="date" id="routineStart" class="week-deadline-input" style="width:100%">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-size:11px; color:var(--text-muted)">종료일</label>
+                            <input type="date" id="routineEnd" class="week-deadline-input" style="width:100%">
+                        </div>
+                    </div>
+                    <button class="save-modal-btn" onclick="window.addRoutine()">루틴 등록하기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 과목 편집 모달 -->
     <div class="subj-modal-overlay" id="subjectModal">
         <div class="subj-modal-content">
@@ -1535,6 +1620,7 @@
         window.todos = {};
         window.subjects = []; // [{ id, name, color, weeks: [{weekNum, deadline, lectures:[{id, title, done}]}] }]
         window.openedSubjectIds = new Set(); // 열려있는 과목 카드 ID 저장
+        window.routines = []; // [{ id, text, categoryId, startDate, endDate }]
 
         let currentDate = new Date();
         let currentRefDate = new Date(); 
@@ -1645,16 +1731,9 @@
                     window.renderTodos();
                 });
 
-                // 강의 데이터 로드 추가
-                const lecDocRef = doc(db, "users", uid, "data", "lectures");
-                const lecSnap = await getDoc(lecDocRef);
-                if (lecSnap.exists()) {
-                    window.subjects = lecSnap.data().items || [];
-                } else {
-                    window.subjects = [];
-                }
-                window.renderLectures();
-
+                // 강의/루틴 데이터 로드
+                await loadLecturesAndRoutines();
+                
             } catch(e) {
                 console.error("클라우드 데이터 로컬 연동 실패:", e);
                 alert("서버 통신에 문제가 발생했습니다. 권한 설정(규칙)을 확인해주세요.");
@@ -1681,6 +1760,32 @@
                 console.error("강의 데이터 저장 실패:", e);
             }
         };
+
+        window.saveRoutinesToCloud = async () => {
+            if(!currentUser) return;
+            const routDocRef = doc(db, "users", currentUser.uid, "data", "routines");
+            try {
+                await setDoc(routDocRef, { items: window.routines });
+            } catch(e) {
+                console.error("루틴 저장 실패:", e);
+            }
+        };
+
+        // 강의 데이터 로드 로직 수정 (루틴 로드 추가)
+        async function loadLecturesAndRoutines() {
+            if(!currentUser) return;
+            // 강의 로드
+            const lecDocRef = doc(db, "users", currentUser.uid, "data", "lectures");
+            const lecSnap = await getDoc(lecDocRef);
+            window.subjects = lecSnap.exists() ? (lecSnap.data().items || []) : [];
+            window.renderLectures();
+
+            // 루틴 로드
+            const routDocRef = doc(db, "users", currentUser.uid, "data", "routines");
+            const routSnap = await getDoc(routDocRef);
+            window.routines = routSnap.exists() ? (routSnap.data().items || []) : [];
+            window.renderTodos();
+        }
 
         // --- 탭 전환 ---
         window.switchTab = (tab) => {
@@ -2512,7 +2617,26 @@
             const emptyState = document.getElementById('emptyState');
             container.innerHTML = '';
 
-            const dayTodos = window.todos[dateKey] || [];
+            const dayTodos = [...(window.todos[dateKey] || [])];
+            
+            // 루틴 추가 로직
+            const curDateStr = window.formatDateKey(currentDate);
+            window.routines.forEach(rout => {
+                if(rout.startDate <= curDateStr && rout.endDate >= curDateStr) {
+                    // 이미 완료 처리되어 todos에 있는 루틴인지 확인 (id나 routineId 활용)
+                    const exists = dayTodos.find(t => t.routineId === rout.id);
+                    if(!exists) {
+                        dayTodos.push({
+                            id: 'rout_' + rout.id,
+                            text: rout.text,
+                            completed: false,
+                            categoryId: rout.categoryId,
+                            routineId: rout.id,
+                            isRoutine: true
+                        });
+                    }
+                }
+            });
 
             if (dayTodos.length === 0) {
                 emptyState.style.display = 'block';
@@ -2634,15 +2758,33 @@
 
         window.toggleTodo = (id) => {
             const dateKey = window.formatDateKey(currentDate);
+            if (!window.todos[dateKey]) window.todos[dateKey] = [];
             const todayTodos = window.todos[dateKey];
-            const todo = todayTodos.find(t => t.id === id);
             
-            if (todo) {
-                todo.completed = !todo.completed;
-                window.renderCalendar(); 
-                window.renderTodos();
-                window.saveTodosToCloud();
+            // 루틴 가상 항목인 경우
+            if(typeof id === 'string' && id.startsWith('rout_')) {
+                const routId = id.replace('rout_', '');
+                const rout = window.routines.find(r => r.id === routId);
+                if(rout) {
+                    todayTodos.push({
+                        id: Date.now(),
+                        text: rout.text,
+                        completed: true,
+                        categoryId: rout.categoryId,
+                        routineId: rout.id,
+                        isRoutine: true
+                    });
+                }
+            } else {
+                const todo = todayTodos.find(t => t.id === id);
+                if (todo) {
+                    todo.completed = !todo.completed;
+                }
             }
+
+            window.renderCalendar(); 
+            window.renderTodos();
+            window.saveTodosToCloud();
         };
 
         window.moveTodoCategory = (id, newCatId) => {
@@ -2716,6 +2858,83 @@
             
             window.renderTodos();
             window.saveTodosToCloud();
+        };
+
+        // --- 루틴 관리 함수들 ---
+        window.openRoutineModal = () => {
+            const modal = document.getElementById('routineModal');
+            window.renderRoutineList();
+            
+            // 카테고리 셀렉트 박스 채우기
+            const catSelect = document.getElementById('newRoutineCat');
+            catSelect.innerHTML = window.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            
+            // 날짜 기본값 (오늘)
+            const today = window.formatDateKey(new Date());
+            document.getElementById('routineStart').value = today;
+            document.getElementById('routineEnd').value = today;
+            
+            modal.style.display = 'flex';
+        };
+
+        window.closeRoutineModal = () => {
+            document.getElementById('routineModal').style.display = 'none';
+        };
+
+        window.renderRoutineList = () => {
+            const list = document.getElementById('routineList');
+            if(window.routines.length === 0) {
+                list.innerHTML = `<div class="routine-empty">등록된 루틴이 없습니다.</div>`;
+                return;
+            }
+            
+            list.innerHTML = window.routines.map((r, i) => {
+                const cat = window.categories.find(c => c.id === r.categoryId) || window.categories[0];
+                return `
+                    <div class="routine-item">
+                        <div class="routine-item-header">
+                            <div>
+                                <span class="routine-tag" style="background:${cat.color}">${cat.name}</span>
+                                <span class="routine-name">${r.text}</span>
+                            </div>
+                            <button class="cat-delete-btn" onclick="window.deleteRoutine('${r.id}')">×</button>
+                        </div>
+                        <div class="routine-meta">📅 ${r.startDate.replace(/-/g,'.')} ~ ${r.endDate.replace(/-/g,'.')}</div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        window.addRoutine = () => {
+            const name = document.getElementById('newRoutineName').value.trim();
+            const catId = document.getElementById('newRoutineCat').value;
+            const start = document.getElementById('routineStart').value;
+            const end = document.getElementById('routineEnd').value;
+            
+            if(!name) { alert('루틴 이름을 입력하세요!'); return; }
+            if(!start || !end) { alert('기간을 설정하세요!'); return; }
+            if(start > end) { alert('종료일이 시작일보다 빠를 수 없습니다.'); return; }
+            
+            window.routines.push({
+                id: 'R' + Date.now(),
+                text: name,
+                categoryId: catId,
+                startDate: start,
+                endDate: end
+            });
+            
+            document.getElementById('newRoutineName').value = '';
+            window.renderRoutineList();
+            window.renderTodos();
+            window.saveRoutinesToCloud();
+        };
+
+        window.deleteRoutine = (id) => {
+            if(!confirm('이 루틴을 삭제하시겠습니까? (이미 완료된 항목들은 유지됩니다)')) return;
+            window.routines = window.routines.filter(r => r.id !== id);
+            window.renderRoutineList();
+            window.renderTodos();
+            window.saveRoutinesToCloud();
         };
 
         const style = document.createElement('style');
