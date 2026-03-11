@@ -2918,7 +2918,7 @@
             
             if (!window.todos[dateKey]) window.todos[dateKey] = [];
             const dayTodos = window.todos[dateKey];
-            let existing = dayTodos.find(t => t.id === idStr);
+            let existing = dayTodos.find(t => t.id == idStr);
             
             if(!existing) {
                 const routId = idStr.replace('rout_', '');
@@ -2945,7 +2945,7 @@
             const realId = window.ensureRealTask(id, dateKey);
             
             const todayTodos = window.todos[dateKey];
-            const todo = todayTodos.find(t => t.id === realId);
+            const todo = todayTodos.find(t => t.id == realId);
             if (todo) {
                 todo.completed = !todo.completed;
             }
@@ -2977,7 +2977,7 @@
             const dateKey = window.formatDateKey(currentDate);
             const realId = window.ensureRealTask(todoId, dateKey);
             
-            const todo = window.todos[dateKey].find(t => t.id === realId);
+            const todo = window.todos[dateKey].find(t => t.id == realId);
             if(!todo) return;
 
             todo.text = newText.trim();
@@ -3029,7 +3029,7 @@
             if(oldDateKey === newDateStr) return;
 
             const realId = window.ensureRealTask(todoId, oldDateKey);
-            const todo = window.todos[oldDateKey].find(t => t.id === realId);
+            const todo = window.todos[oldDateKey].find(t => t.id == realId);
             if(!todo) return;
 
             if(todo.isRoutine) {
@@ -3042,7 +3042,7 @@
                 window.todos[newDateStr].push(movedTodo);
             } else {
                 // 일반 할 일 이동
-                window.todos[oldDateKey] = window.todos[oldDateKey].filter(t => t.id !== realId);
+                window.todos[oldDateKey] = window.todos[oldDateKey].filter(t => t.id != realId);
                 if(window.todos[oldDateKey].length === 0) delete window.todos[oldDateKey];
 
                 if(!window.todos[newDateStr]) window.todos[newDateStr] = [];
@@ -3058,7 +3058,7 @@
             const dateKey = window.formatDateKey(currentDate);
             const realId = window.ensureRealTask(todoId, dateKey);
             
-            const todo = window.todos[dateKey].find(t => t.id === realId);
+            const todo = window.todos[dateKey].find(t => t.id == realId);
             if(!todo) return;
 
             todo.memo = memoText;
@@ -3070,7 +3070,7 @@
             const dateKey = window.formatDateKey(currentDate);
             const realId = window.ensureRealTask(id, dateKey);
             const todayTodos = window.todos[dateKey] || [];
-            const todo = todayTodos.find(t => t.id === realId);
+            const todo = todayTodos.find(t => t.id == realId);
             
             if (todo && newCatId) {
                 todo.categoryId = newCatId;
@@ -3083,13 +3083,13 @@
         window.deleteTodo = (id) => {
             const dateKey = window.formatDateKey(currentDate);
             const realId = window.ensureRealTask(id, dateKey);
-            const todo = window.todos[dateKey].find(t => t.id === realId);
+            const todo = window.todos[dateKey].find(t => t.id == realId);
             
             if(todo) {
                 if(todo.isRoutine) {
                     todo.deleted = true; // 가상 루틴은 완전히 없애지 않고 tombstone 처리하여 다시 안나오게 함
                 } else {
-                    window.todos[dateKey] = window.todos[dateKey].filter(t => t.id !== realId);
+                    window.todos[dateKey] = window.todos[dateKey].filter(t => t.id != realId);
                     if(window.todos[dateKey].length === 0) delete window.todos[dateKey];
                 }
             }
@@ -3132,13 +3132,13 @@
 
             const todayTodos = window.todos[dateKey] || [];
             
-            const dragIndex = todayTodos.findIndex(t => t.id === realDragId);
+            const dragIndex = todayTodos.findIndex(t => t.id == realDragId);
             if(dragIndex === -1) return;
             
             const dragTodo = todayTodos[dragIndex];
             todayTodos.splice(dragIndex, 1); // 기존 위치에서 제거
             
-            let targetIndex = todayTodos.findIndex(t => t.id === realTargetId);
+            let targetIndex = todayTodos.findIndex(t => t.id == realTargetId);
             if(targetIndex === -1) {
                 todayTodos.push(dragTodo); 
             } else {
@@ -3182,7 +3182,7 @@
             document.getElementById('btnSaveRoutine').innerText = routId ? '수정 완료' : '등록하기';
 
             if(routId) {
-                const r = window.routines.find(rout => rout.id === routId);
+                const r = window.routines.find(rout => rout.id == routId);
                 document.getElementById('newRoutineName').value = r.text;
                 document.getElementById('newRoutineCat').value = r.categoryId;
                 document.getElementById('routineStart').value = r.startDate;
