@@ -2669,14 +2669,23 @@
                 
                 let totalCount = window.todos[dateKey] ? window.todos[dateKey].length : 0;
                 
-                // 루틴 개수 합산 (중복 제외)
+                // 루틴 개수 합산 (중복 제외 및 삭제 처리(tombstone) 제외)
                 const routinesForDay = window.routines.filter(r => r.startDate <= dateKey && r.endDate >= dateKey);
                 routinesForDay.forEach(r => {
                     const dayTodos = window.todos[dateKey] || [];
-                    if(!dayTodos.find(t => t.routineId === r.id)) {
-                        totalCount++;
+                    const existing = dayTodos.find(t => t.routineId === r.id);
+                    if(!existing) {
+                        totalCount++; // 아직 생성/조작 안 된 가상 루틴
+                    } else if (existing && !existing.deleted) {
+                        // 이미 실체화 되었지만 완전히 삭제된 게 아님 (위에서 이미 count 됨)
                     }
                 });
+
+                // 삭제된 항목(tombstone)은 카운트에서 빼기
+                if(window.todos[dateKey]) {
+                    const deletedCount = window.todos[dateKey].filter(t => t.deleted).length;
+                    totalCount -= deletedCount;
+                }
 
                 const bgColorStyle = window.getGradientStyleForDate(dateKey);
                 const hasColorStr = bgColorStyle ? 'has-color' : '';
@@ -2755,6 +2764,7 @@
                 
                 const grouped = {};
                 dayTodos.forEach(todo => {
+                    if(todo.deleted) return; // 삭제 처리된 항목(tombstone)은 렌더링 제외
                     const catTarget = window.categories.find(c => c.id === todo.categoryId) ? todo.categoryId : window.categories[0].id;
                     if(!grouped[catTarget]) grouped[catTarget] = [];
                     grouped[catTarget].push(todo);
@@ -2805,30 +2815,37 @@
                         li.innerHTML = `
                             <div class="todo-checkbox ${todo.completed ? 'completed' : ''}" 
                                  style="${checkboxStyle}"
-                                 onclick="window.toggleTodo(${todo.id})"></div>
+                                 onclick="window.toggleTodo('${todo.id}')"></div>
                             <div style="flex:1;">
                                 <div class="todo-text">${todo.text}</div>
                                 ${memoHtml}
                             </div>
                             <div class="todo-actions">
-                                <button class="delete-btn" onclick="window.deleteTodo(${todo.id})" title="삭제">×</button>
+                                <button class="delete-btn" onclick="window.deleteTodo('${todo.id}')" title="삭제">×</button>
                             </div>
                         `;
 
-                        // 상세 패널 (날짜 변경 + 메모)
+                        // 상세 패널 (이름 수정 + 날짜 변경 + 메모)
                         const detailPanel = document.createElement('div');
                         detailPanel.className = 'todo-detail-panel';
                         detailPanel.id = `detail-${todo.id}`;
                         detailPanel.innerHTML = `
                             <div class="todo-detail-row">
+                                <div class="todo-detail-label">내용</div>
+                                <div style="display:flex; flex:1; gap:4px;">
+                                    <input type="text" class="todo-memo-input" style="height:32px; padding:0 8px;" value="${todo.text}">
+                                    <button class="todo-detail-save-btn" style="width:auto; padding:0 12px; margin:0;" onclick="window.updateTodoText('${todo.id}', this.previousElementSibling.value)">이름 변경</button>
+                                </div>
+                            </div>
+                            <div class="todo-detail-row">
                                 <div class="todo-detail-label">날짜</div>
-                                <input type="date" class="todo-date-input" value="${dateKey}" onchange="window.updateTodoDate(${todo.id}, this.value)">
+                                <input type="date" class="todo-date-input" value="${dateKey}" onchange="window.updateTodoDate('${todo.id}', this.value)">
                             </div>
                             <div class="todo-detail-row">
                                 <div class="todo-detail-label">메모</div>
                                 <textarea class="todo-memo-input" placeholder="메모를 입력하세요...">${todo.memo || ''}</textarea>
                             </div>
-                            <button class="todo-detail-save-btn" onclick="window.updateTodoMemo(${todo.id}, this.previousElementSibling.querySelector('textarea').value)">메모 저장</button>
+                            <button class="todo-detail-save-btn" onclick="window.updateTodoMemo('${todo.id}', this.previousElementSibling.querySelector('textarea').value)">메모 저장</button>
                         `;
 
                         // --- 순서 변경을 위한 개별 항목 드롭 이벤트 ---
@@ -2898,31 +2915,41 @@
             window.saveTodosToCloud();
         };
 
-        window.toggleTodo = (id) => {
-            const dateKey = window.formatDateKey(currentDate);
-            if (!window.todos[dateKey]) window.todos[dateKey] = [];
-            const todayTodos = window.todos[dateKey];
+        // 가상 루틴을 실체화하는 헬퍼 함수
+        window.ensureRealTask = (idStr, dateKey) => {
+            if(typeof idStr !== 'string' || !idStr.startsWith('rout_')) return idStr;
             
-            // 루틴 가상 항목인 경우
-            if(typeof id === 'string' && id.startsWith('rout_')) {
-                const routId = id.replace('rout_', '');
+            if (!window.todos[dateKey]) window.todos[dateKey] = [];
+            const dayTodos = window.todos[dateKey];
+            let existing = dayTodos.find(t => t.id === idStr);
+            
+            if(!existing) {
+                const routId = idStr.replace('rout_', '');
                 const rout = window.routines.find(r => r.id === routId);
                 if(rout) {
-                    todayTodos.push({
-                        id: Date.now(),
+                    existing = {
+                        id: idStr, // 고유 id로 'rout_R123' 형태를 그대로 씀 (하루에 하나이므로)
                         text: rout.text,
-                        completed: true,
+                        completed: false,
                         categoryId: rout.categoryId,
                         routineId: rout.id,
                         isRoutine: true,
                         memo: ''
-                    });
+                    };
+                    dayTodos.push(existing);
                 }
-            } else {
-                const todo = todayTodos.find(t => t.id === id);
-                if (todo) {
-                    todo.completed = !todo.completed;
-                }
+            }
+            return idStr;
+        };
+
+        window.toggleTodo = (id) => {
+            const dateKey = window.formatDateKey(currentDate);
+            const realId = window.ensureRealTask(id, dateKey);
+            
+            const todayTodos = window.todos[dateKey];
+            const todo = todayTodos.find(t => t.id === realId);
+            if (todo) {
+                todo.completed = !todo.completed;
             }
 
             window.renderCalendar(); 
@@ -2947,20 +2974,44 @@
             }
         };
 
+        window.updateTodoText = async (todoId, newText) => {
+            if(!newText.trim()) return;
+            const dateKey = window.formatDateKey(currentDate);
+            const realId = window.ensureRealTask(todoId, dateKey);
+            
+            const todo = window.todos[dateKey].find(t => t.id === realId);
+            if(!todo) return;
+
+            todo.text = newText.trim();
+            await window.saveTodosToCloud();
+            window.renderTodos();
+        };
+
         window.updateTodoDate = async (todoId, newDateStr) => {
             if(!newDateStr) return;
             const oldDateKey = window.formatDateKey(currentDate);
             if(oldDateKey === newDateStr) return;
 
-            const todo = window.todos[oldDateKey].find(t => t.id === todoId);
+            const realId = window.ensureRealTask(todoId, oldDateKey);
+            const todo = window.todos[oldDateKey].find(t => t.id === realId);
             if(!todo) return;
 
-            // 이동
-            window.todos[oldDateKey] = window.todos[oldDateKey].filter(t => t.id !== todoId);
-            if(window.todos[oldDateKey].length === 0) delete window.todos[oldDateKey];
+            if(todo.isRoutine) {
+                // 루틴의 경우 원래 자리에 tombstone(삭제 표시)을 남기고, 새 날짜로 복제본을 보냄
+                todo.deleted = true;
+                
+                if(!window.todos[newDateStr]) window.todos[newDateStr] = [];
+                // 이동하는 곳에서는 일반 할 일처럼 취급할 수도 있으나, 루틴 id 충돌을 막기 위해 새 ID 부여
+                const movedTodo = {...todo, id: Date.now(), deleted: false};
+                window.todos[newDateStr].push(movedTodo);
+            } else {
+                // 일반 할 일 이동
+                window.todos[oldDateKey] = window.todos[oldDateKey].filter(t => t.id !== realId);
+                if(window.todos[oldDateKey].length === 0) delete window.todos[oldDateKey];
 
-            if(!window.todos[newDateStr]) window.todos[newDateStr] = [];
-            window.todos[newDateStr].push(todo);
+                if(!window.todos[newDateStr]) window.todos[newDateStr] = [];
+                window.todos[newDateStr].push(todo);
+            }
 
             await window.saveTodosToCloud();
             window.renderCalendar();
@@ -2969,7 +3020,9 @@
 
         window.updateTodoMemo = async (todoId, memoText) => {
             const dateKey = window.formatDateKey(currentDate);
-            const todo = window.todos[dateKey].find(t => t.id === todoId);
+            const realId = window.ensureRealTask(todoId, dateKey);
+            
+            const todo = window.todos[dateKey].find(t => t.id === realId);
             if(!todo) return;
 
             todo.memo = memoText;
@@ -2979,8 +3032,9 @@
 
         window.moveTodoCategory = (id, newCatId) => {
             const dateKey = window.formatDateKey(currentDate);
+            const realId = window.ensureRealTask(id, dateKey);
             const todayTodos = window.todos[dateKey] || [];
-            const todo = todayTodos.find(t => t.id === id);
+            const todo = todayTodos.find(t => t.id === realId);
             
             if (todo && newCatId) {
                 todo.categoryId = newCatId;
@@ -2992,8 +3046,17 @@
 
         window.deleteTodo = (id) => {
             const dateKey = window.formatDateKey(currentDate);
-            window.todos[dateKey] = window.todos[dateKey].filter(t => t.id !== id);
-            if(window.todos[dateKey].length === 0) delete window.todos[dateKey];
+            const realId = window.ensureRealTask(id, dateKey);
+            const todo = window.todos[dateKey].find(t => t.id === realId);
+            
+            if(todo) {
+                if(todo.isRoutine) {
+                    todo.deleted = true; // 가상 루틴은 완전히 없애지 않고 tombstone 처리하여 다시 안나오게 함
+                } else {
+                    window.todos[dateKey] = window.todos[dateKey].filter(t => t.id !== realId);
+                    if(window.todos[dateKey].length === 0) delete window.todos[dateKey];
+                }
+            }
             window.renderCalendar();
             window.renderTodos();
             window.saveTodosToCloud();
@@ -3026,15 +3089,20 @@
 
         window.reorderTodo = (dragId, targetId, targetCatId, insertAfter) => {
             const dateKey = window.formatDateKey(currentDate);
+            
+            // 드래그 대상과 타겟 둘 다 가상 루틴일 수 있으므로 먼저 실체화
+            const realDragId = window.ensureRealTask(dragId, dateKey);
+            const realTargetId = window.ensureRealTask(targetId, dateKey);
+
             const todayTodos = window.todos[dateKey] || [];
             
-            const dragIndex = todayTodos.findIndex(t => t.id === dragId);
+            const dragIndex = todayTodos.findIndex(t => t.id === realDragId);
             if(dragIndex === -1) return;
             
             const dragTodo = todayTodos[dragIndex];
             todayTodos.splice(dragIndex, 1); // 기존 위치에서 제거
             
-            let targetIndex = todayTodos.findIndex(t => t.id === targetId);
+            let targetIndex = todayTodos.findIndex(t => t.id === realTargetId);
             if(targetIndex === -1) {
                 todayTodos.push(dragTodo); 
             } else {
