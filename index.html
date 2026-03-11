@@ -2799,8 +2799,12 @@
                         li.className = 'todo-item' + (todo.completed ? ' completed' : '');
                         li.draggable = true;
                         li.onclick = (e) => {
-                            if (e.target.classList.contains('todo-checkbox') || e.target.classList.contains('delete-btn')) return;
+                            if (e.target.classList.contains('todo-checkbox') || e.target.classList.contains('delete-btn') || e.target.tagName === 'INPUT') return;
                             window.toggleTodoDetail(todo.id);
+                        };
+                        li.ondblclick = (e) => {
+                            if (e.target.classList.contains('todo-checkbox') || e.target.classList.contains('delete-btn')) return;
+                            window.startInlineEdit(todo.id, li);
                         };
                         li.ondragstart = (e) => window.dragTodoStart(e, todo.id);
                         li.ondragend = (e) => { e.target.style.opacity = '1'; };
@@ -2825,18 +2829,13 @@
                             </div>
                         `;
 
-                        // 상세 패널 (이름 수정 + 날짜 변경 + 메모)
+                        `;
+
+                        // 상세 패널 (날짜 변경 + 메모)
                         const detailPanel = document.createElement('div');
                         detailPanel.className = 'todo-detail-panel';
                         detailPanel.id = `detail-${todo.id}`;
                         detailPanel.innerHTML = `
-                            <div class="todo-detail-row">
-                                <div class="todo-detail-label">내용</div>
-                                <div style="display:flex; flex:1; gap:4px;">
-                                    <input type="text" class="todo-memo-input" style="height:32px; padding:0 8px;" value="${todo.text}">
-                                    <button class="todo-detail-save-btn" style="width:auto; padding:0 12px; margin:0;" onclick="window.updateTodoText('${todo.id}', this.previousElementSibling.value)">이름 변경</button>
-                                </div>
-                            </div>
                             <div class="todo-detail-row">
                                 <div class="todo-detail-label">날짜</div>
                                 <input type="date" class="todo-date-input" value="${dateKey}" onchange="window.updateTodoDate('${todo.id}', this.value)">
@@ -2925,7 +2924,8 @@
             
             if(!existing) {
                 const routId = idStr.replace('rout_', '');
-                const rout = window.routines.find(r => r.id === routId);
+                // String 비교로 타입 불일치 해결
+                const rout = window.routines.find(r => String(r.id) === routId);
                 if(rout) {
                     existing = {
                         id: idStr, // 고유 id로 'rout_R123' 형태를 그대로 씀 (하루에 하나이므로)
@@ -2985,6 +2985,44 @@
             todo.text = newText.trim();
             await window.saveTodosToCloud();
             window.renderTodos();
+        };
+
+        window.startInlineEdit = (todoId, liElement) => {
+            const textElement = liElement.querySelector('.todo-text');
+            if (textElement.querySelector('input')) return; // 이미 수정 모드이면 무시
+
+            const currentText = textElement.innerText;
+            
+            // 입력창으로 교체
+            textElement.innerHTML = `<input type="text" class="todo-inline-input" style="flex:1; width:100%; border:1px solid var(--accent-color); border-radius:4px; padding:4px 8px; font-size:15px; outline:none;" value="">`;
+            
+            const inputElement = textElement.querySelector('input');
+            inputElement.value = currentText; // value 속성에 넣으면 따옴표 문제 등 방지 가능
+            inputElement.focus();
+            
+            // 텍스트 맨 끝으로 커서 이동
+            inputElement.setSelectionRange(inputElement.value.length, inputElement.value.length);
+
+            // 포커스를 잃거나 엔터를 치면 저장
+            const saveChanges = async () => {
+                const newText = inputElement.value;
+                if(newText.trim() !== currentText) {
+                    await window.updateTodoText(todoId, newText);
+                } else {
+                    textElement.innerHTML = currentText; // 변경사항 없으면 롤백
+                }
+            };
+
+            inputElement.onblur = saveChanges;
+            inputElement.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    // 엔터 키 누르면 blur 처리시키면서 자연스럽게 저장되도록 유도
+                    inputElement.blur(); 
+                } else if (e.key === 'Escape') {
+                    // ESC 누르면 취소
+                    textElement.innerHTML = currentText;
+                }
+            };
         };
 
         window.updateTodoDate = async (todoId, newDateStr) => {
