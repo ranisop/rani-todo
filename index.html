@@ -66,8 +66,19 @@
             display: flex;
             flex-direction: column;
             flex: 1;
-            /* 모바일에서는 기본 스크롤 */
             background-color: var(--bg-color);
+            overflow-y: auto;
+        }
+
+        /* 기본(모바일): 세로 배치 - 달력 위, 투두 아래 */
+        .tab-content {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        .tab-content.active {
+            display: flex;
         }
 
         /* PC 버전 미디어 쿼리 (화면이 넓을 때!) */
@@ -85,7 +96,7 @@
                 height: 100%;
             }
             .tab-content {
-                flex-direction: row; /* 할일/강의 탭 모두 좌우 분할 */
+                flex-direction: row; /* PC: 좌우 분할 */
                 flex: 1;
                 overflow: hidden;
             }
@@ -663,6 +674,84 @@
             font-size: 14px;
         }
 
+        /* 할 일 상세 패널 (날짜 이동 + 메모) */
+        .todo-item-wrap {
+            display: flex;
+            flex-direction: column;
+        }
+        .todo-detail-panel {
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            background: #F7F7F7;
+            border-radius: 0 0 12px 12px;
+            padding: 12px 14px 14px;
+            border: 1px solid var(--border-color);
+            border-top: none;
+            margin-top: -4px;
+        }
+        .todo-detail-panel.open {
+            display: flex;
+        }
+        .todo-item.detail-open {
+            border-radius: 12px 12px 0 0;
+        }
+        .todo-detail-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .todo-detail-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            min-width: 36px;
+            padding-top: 7px;
+        }
+        .todo-memo-display {
+            font-size: 12px;
+            color: var(--text-muted);
+            padding: 2px 4px;
+            font-style: italic;
+        }
+        .todo-date-input {
+            flex: 1;
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            background: white;
+        }
+        .todo-date-input:focus { border-color: var(--accent-color); }
+        .todo-memo-input {
+            flex: 1;
+            border: 1px solid var(--border-color);
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            background: white;
+            resize: none;
+            min-height: 64px;
+            font-family: inherit;
+        }
+        .todo-memo-input:focus { border-color: var(--accent-color); }
+        .todo-detail-save-btn {
+            align-self: flex-end;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 7px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
         /* ------------------
            카테고리 설정 모달
            ------------------ */
@@ -901,17 +990,6 @@
             border-bottom-color: var(--accent-color);
         }
 
-        /* 탭 컨텐츠 래퍼 */
-        .tab-content {
-            display: none;
-            flex: 1;
-            flex-direction: row; /* mainApp의 row 방향 상속 */
-            height: 100%;
-            overflow: hidden;
-        }
-        .tab-content.active {
-            display: flex;
-        }
 
         /* ------------------
            강의 관리 탭
@@ -2703,9 +2781,17 @@
                     const ul = groupDiv.querySelector(`#list-${cat.id}`);
                     
                     catTodos.forEach(todo => {
+                        const itemWrap = document.createElement('div');
+                        itemWrap.className = 'todo-item-wrap';
+                        itemWrap.id = `wrap-${todo.id}`;
+
                         const li = document.createElement('li');
                         li.className = 'todo-item' + (todo.completed ? ' completed' : '');
                         li.draggable = true;
+                        li.onclick = (e) => {
+                            if (e.target.classList.contains('todo-checkbox') || e.target.classList.contains('delete-btn')) return;
+                            window.toggleTodoDetail(todo.id);
+                        };
                         li.ondragstart = (e) => window.dragTodoStart(e, todo.id);
                         li.ondragend = (e) => { e.target.style.opacity = '1'; };
                         
@@ -2714,14 +2800,35 @@
                             checkboxStyle = `background-color: ${cat.color}; border-color: ${cat.color};`;
                         }
                         
+                        const memoHtml = todo.memo ? `<div class="todo-memo-display">${todo.memo}</div>` : '';
+
                         li.innerHTML = `
                             <div class="todo-checkbox ${todo.completed ? 'completed' : ''}" 
                                  style="${checkboxStyle}"
                                  onclick="window.toggleTodo(${todo.id})"></div>
-                            <div class="todo-text">${todo.text}</div>
+                            <div style="flex:1;">
+                                <div class="todo-text">${todo.text}</div>
+                                ${memoHtml}
+                            </div>
                             <div class="todo-actions">
                                 <button class="delete-btn" onclick="window.deleteTodo(${todo.id})" title="삭제">×</button>
                             </div>
+                        `;
+
+                        // 상세 패널 (날짜 변경 + 메모)
+                        const detailPanel = document.createElement('div');
+                        detailPanel.className = 'todo-detail-panel';
+                        detailPanel.id = `detail-${todo.id}`;
+                        detailPanel.innerHTML = `
+                            <div class="todo-detail-row">
+                                <div class="todo-detail-label">날짜</div>
+                                <input type="date" class="todo-date-input" value="${dateKey}" onchange="window.updateTodoDate(${todo.id}, this.value)">
+                            </div>
+                            <div class="todo-detail-row">
+                                <div class="todo-detail-label">메모</div>
+                                <textarea class="todo-memo-input" placeholder="메모를 입력하세요...">${todo.memo || ''}</textarea>
+                            </div>
+                            <button class="todo-detail-save-btn" onclick="window.updateTodoMemo(${todo.id}, this.previousElementSibling.querySelector('textarea').value)">메모 저장</button>
                         `;
 
                         // --- 순서 변경을 위한 개별 항목 드롭 이벤트 ---
@@ -2757,7 +2864,9 @@
                             }
                         };
                         
-                        ul.appendChild(li);
+                        itemWrap.appendChild(li);
+                        itemWrap.appendChild(detailPanel);
+                        ul.appendChild(itemWrap);
                     });
                 });
             }
@@ -2778,7 +2887,8 @@
                 id: Date.now(),
                 text: text,
                 completed: false,
-                categoryId: window.activeCategoryId 
+                categoryId: window.activeCategoryId,
+                memo: ''
             });
 
             window.renderCalendar(); 
@@ -2804,7 +2914,8 @@
                         completed: true,
                         categoryId: rout.categoryId,
                         routineId: rout.id,
-                        isRoutine: true
+                        isRoutine: true,
+                        memo: ''
                     });
                 }
             } else {
@@ -2817,6 +2928,53 @@
             window.renderCalendar(); 
             window.renderTodos();
             window.saveTodosToCloud();
+        };
+
+        window.toggleTodoDetail = (todoId) => {
+            const detail = document.getElementById(`detail-${todoId}`);
+            const wrap = document.getElementById(`wrap-${todoId}`);
+            if(!detail) return;
+
+            const isOpen = detail.classList.contains('open');
+            
+            // 다른 열려있는 상세 패널 닫기 (선택사항, 깔끔함을 위해)
+            document.querySelectorAll('.todo-detail-panel.open').forEach(p => p.classList.remove('open'));
+            document.querySelectorAll('.todo-item.detail-open').forEach(p => p.classList.remove('detail-open'));
+
+            if(!isOpen) {
+                detail.classList.add('open');
+                wrap.querySelector('.todo-item').classList.add('detail-open');
+            }
+        };
+
+        window.updateTodoDate = async (todoId, newDateStr) => {
+            if(!newDateStr) return;
+            const oldDateKey = window.formatDateKey(currentDate);
+            if(oldDateKey === newDateStr) return;
+
+            const todo = window.todos[oldDateKey].find(t => t.id === todoId);
+            if(!todo) return;
+
+            // 이동
+            window.todos[oldDateKey] = window.todos[oldDateKey].filter(t => t.id !== todoId);
+            if(window.todos[oldDateKey].length === 0) delete window.todos[oldDateKey];
+
+            if(!window.todos[newDateStr]) window.todos[newDateStr] = [];
+            window.todos[newDateStr].push(todo);
+
+            await window.saveTodosToCloud();
+            window.renderCalendar();
+            window.renderTodos();
+        };
+
+        window.updateTodoMemo = async (todoId, memoText) => {
+            const dateKey = window.formatDateKey(currentDate);
+            const todo = window.todos[dateKey].find(t => t.id === todoId);
+            if(!todo) return;
+
+            todo.memo = memoText;
+            await window.saveTodosToCloud();
+            window.renderTodos();
         };
 
         window.moveTodoCategory = (id, newCatId) => {
