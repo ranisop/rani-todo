@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>라니의 To-do 공간</title>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <style>
@@ -1685,7 +1685,7 @@
     <!-- Firebase v10 모듈러 스크립트 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+        import { getAuth, signInWithRedirect, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
         // 사용자가 발급받은 Firebase 설정 코드
@@ -1750,7 +1750,7 @@
         });
 
         window.signInWithGoogle = () => {
-            signInWithPopup(auth, provider).catch(error => {
+            signInWithRedirect(auth, provider).catch(error => {
                 let errorMsg = "로그인 도중 문제가 발생했습니다.\n";
                 if(error.code === 'auth/configuration-not-found' || error.message.includes('configuration')) {
                     errorMsg += "\n[해결 방법]\nFirebase 콘솔의 [Authentication(인증)] 메뉴에서 [Google] 로그인 제공업체를 '사용 설정(Enable)' 하지 않으셨습니다. 설정 후 다시 시도해주세요!";
@@ -2136,6 +2136,7 @@
             footer.appendChild(saveBtn);
 
             document.getElementById('subjectModal').classList.add('open');
+            document.body.style.overflow = 'hidden';
         };
 
         window.renderSubjectModalBody = () => {
@@ -2278,6 +2279,7 @@
 
         window.closeSubjectModal = () => {
             document.getElementById('subjectModal').classList.remove('open');
+            document.body.style.overflow = '';
         };
 
         window.deleteSubject = (subjId) => {
@@ -2302,6 +2304,7 @@
                 <button class="modal-save-btn" onclick="window.closeSubjectModal()">닫기</button>
             `;
             document.getElementById('subjectModal').classList.add('open');
+            document.body.style.overflow = 'hidden';
         };
 
         window.toggleOverviewSubject = (subjId) => {
@@ -2446,6 +2449,7 @@
             const modal = document.getElementById('settingModal');
             window.renderSettingsCategories();
             modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
         };
 
         window.renderSettingsCategories = () => {
@@ -2529,6 +2533,7 @@
 
         window.closeSettings = () => {
             document.getElementById('settingModal').style.display = 'none';
+            document.body.style.overflow = '';
         };
 
         window.saveSettings = () => {
@@ -3167,10 +3172,12 @@
             catSelect.innerHTML = window.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
             
             modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
         };
 
         window.closeRoutineModal = () => {
             document.getElementById('routineModal').style.display = 'none';
+            document.body.style.overflow = '';
         };
 
         window.showRoutineForm = (routId = null) => {
