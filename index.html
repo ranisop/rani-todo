@@ -1685,7 +1685,7 @@
     <!-- Firebase v10 모듈러 스크립트 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-        import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
         // 사용자가 발급받은 Firebase 설정 코드
@@ -1727,11 +1727,6 @@
         let viewMode = 'weekly'; 
 
         // --- 로그인 시스템 ---
-        getRedirectResult(auth).catch(error => {
-            console.error("Login redirect error:", error);
-            alert("로그인 처리 중 오류가 발생했습니다: " + error.message);
-        });
-
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
@@ -1755,7 +1750,7 @@
         });
 
         window.signInWithGoogle = () => {
-            signInWithRedirect(auth, provider).catch(error => {
+            signInWithPopup(auth, provider).catch(error => {
                 let errorMsg = "로그인 도중 문제가 발생했습니다.\n";
                 if(error.code === 'auth/configuration-not-found' || error.message.includes('configuration')) {
                     errorMsg += "\n[해결 방법]\nFirebase 콘솔의 [Authentication(인증)] 메뉴에서 [Google] 로그인 제공업체를 '사용 설정(Enable)' 하지 않으셨습니다. 설정 후 다시 시도해주세요!";
